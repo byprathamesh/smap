@@ -2,7 +2,6 @@ import time
 import threading
 import signal
 import sys
-import setup
 from camera_processor import CameraProcessor
 import config
 from alert_system import get_alert_statistics
@@ -197,5 +196,4 @@ def print_status_update(processors):
 
 
 if __name__ == "__main__":
-    setup.run_setup_checks()
     main() 
