@@ -102,4 +102,4 @@ MODEL_PATHS = {
 
 # Create necessary directories if they don't exist
 os.makedirs(ALERT_SETTINGS['snapshot_dir'], exist_ok=True)
-os.makedirs(os.path.dirname(MODEL_PATHS['person_detection']), exist_ok=True) 
+os.makedirs(os.path.dirname(MODEL_PATHS['object_detection']['weights']), exist_ok=True) 
