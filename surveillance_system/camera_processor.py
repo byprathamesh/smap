@@ -29,7 +29,15 @@ class CameraProcessor:
         self.camera_location = camera_config.get('location', 'Unknown')
         
         # Initialize AI analyzer
-        self.analyzer = AIAnalyzer()
+        try:
+            self.analyzer = AIAnalyzer()
+        except SystemExit:
+            # Re-raise SystemExit from AI analyzer
+            print(f"[FATAL] Cannot initialize AI analyzer for camera {self.camera_id}")
+            raise
+        except Exception as e:
+            print(f"[ERROR] Failed to initialize AI analyzer for camera {self.camera_id}: {e}")
+            self.analyzer = None
         
         # Thread control
         self.running = False
@@ -67,6 +75,15 @@ class CameraProcessor:
         
         print(f"Starting video processing for {self.camera_name}")
         
+        # Pre-check for video file existence if it's a file path
+        if isinstance(self.camera_url, str) and not self.camera_url.startswith(('http://', 'https://', 'rtsp://')):
+            if not os.path.exists(self.camera_url):
+                print(f"[ERROR] Video file not found at path: {self.camera_url}")
+                print(f"[INFO] Please check the file path in config.py for camera {self.camera_id}")
+                print(f"[INFO] Current working directory: {os.getcwd()}")
+                self.running = False
+                return
+        
         while self.running:
             try:
                 # Initialize video capture
@@ -86,13 +103,22 @@ class CameraProcessor:
                         continue
                     
                     # Read frame from camera
-                    ret, frame = self.cap.read()
-                    
-                    if not ret or frame is None:
-                        print(f"Failed to read frame from camera {self.camera_id}")
+                    try:
+                        ret, frame = self.cap.read()
+                        
+                        if not ret or frame is None:
+                            print(f"[WARNING] Failed to read frame from camera {self.camera_id}")
+                            print(f"[INFO] This may be due to end of video file or camera disconnection")
+                            break
+                    except Exception as e:
+                        print(f"[ERROR] Exception while reading frame from camera {self.camera_id}: {e}")
                         break
                     
-                    # Check if analyzer is ready
+                    # Check if analyzer is available and ready
+                    if self.analyzer is None:
+                        print(f"[ERROR] AI analyzer not available for camera {self.camera_id}")
+                        break
+                    
                     if not self.analyzer.is_ready():
                         continue
                     
@@ -468,6 +494,10 @@ class CameraProcessor:
             except cv2.error as e:
                 print(f"[ERROR] Display error for camera {self.camera_id}: {e}")
                 print("[INFO] This may be due to display/GUI issues. Check if display is available.")
+                print("[INFO] On remote servers, you may need X11 forwarding or run in headless mode.")
+            except Exception as e:
+                print(f"[ERROR] Unexpected display error for camera {self.camera_id}: {e}")
+                print("[INFO] OpenCV may not be compiled with GUI support.")
             
         except Exception as e:
             print(f"Error displaying frame for camera {self.camera_id}: {e}")

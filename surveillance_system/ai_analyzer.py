@@ -39,6 +39,13 @@ class AIAnalyzer:
             print("[FATAL ERROR] A required AI model file is missing or corrupted. Please run the downloader scripts again.")
             print(f"[DEBUG] Model loading error: {e}")
             print("[INFO] Run 'python download_models.py' and 'python download_advanced_models.py' to fix this issue.")
+            print("[INFO] If the problem persists, delete the 'models' folder and re-run the downloaders.")
+            raise SystemExit(1)
+        except Exception as e:
+            print("[FATAL ERROR] Unexpected error during AI model initialization.")
+            print(f"[DEBUG] Unexpected error: {e}")
+            print("[INFO] This may indicate a system compatibility issue or corrupted installation.")
+            print("[INFO] Try reinstalling OpenCV: pip install --upgrade opencv-python")
             raise SystemExit(1)
     
     def _load_yolo_model(self):
@@ -76,8 +83,12 @@ class AIAnalyzer:
             print("YOLOv3-tiny object detection model loaded successfully")
             print(f"Loaded {len(self.class_names)} object classes")
             
+        except (cv2.error, FileNotFoundError) as e:
+            print(f"[ERROR] Failed to load YOLO model: {e}")
+            print("[INFO] Please run 'python download_advanced_models.py' to download YOLO models")
+            self.yolo_net = None
         except Exception as e:
-            print(f"Error loading YOLO model: {e}")
+            print(f"[ERROR] Unexpected error loading YOLO model: {e}")
             self.yolo_net = None
     
     def _load_gender_classification_model(self):
@@ -103,8 +114,12 @@ class AIAnalyzer:
             self.gender_net = cv2.dnn.readNetFromCaffe(prototxt_path, model_path)
             print("Gender classification model loaded successfully")
             
+        except (cv2.error, FileNotFoundError) as e:
+            print(f"[ERROR] Failed to load gender classification model: {e}")
+            print("[INFO] Please run 'python download_models.py' to download gender models")
+            self.gender_net = None
         except Exception as e:
-            print(f"Error loading gender classification model: {e}")
+            print(f"[ERROR] Unexpected error loading gender classification model: {e}")
             self.gender_net = None
     
     def _load_age_estimation_model(self):
@@ -130,8 +145,12 @@ class AIAnalyzer:
             self.age_net = cv2.dnn.readNetFromCaffe(prototxt_path, model_path)
             print("Age estimation model loaded successfully")
             
+        except (cv2.error, FileNotFoundError) as e:
+            print(f"[ERROR] Failed to load age estimation model: {e}")
+            print("[INFO] Please run 'python download_advanced_models.py' to download age models")
+            self.age_net = None
         except Exception as e:
-            print(f"Error loading age estimation model: {e}")
+            print(f"[ERROR] Unexpected error loading age estimation model: {e}")
             self.age_net = None
     
     def _detect_objects(self, frame):
