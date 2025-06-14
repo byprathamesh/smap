@@ -26,7 +26,7 @@ MODELS_CONFIG = [
     {
         "name": "Gender Classification Caffe Model",
         "path": "models/gender_net.caffemodel",
-        "url": "https://github.com/spmallick/learnopencv/raw/master/AgeGender/gender_net.caffemodel",
+        "url": "https://www.dropbox.com/s/onem26312h8h04n/gender_net.caffemodel?dl=1",
         "size": 21768305
     },
     {
@@ -56,7 +56,7 @@ MODELS_CONFIG = [
     {
         "name": "Age Estimation Caffe Model",
         "path": "models/age_net.caffemodel",
-        "url": "https://github.com/spmallick/learnopencv/raw/master/AgeGender/age_net.caffemodel",
+        "url": "https://www.dropbox.com/s/iyv483wz78j1g6p/age_net.caffemodel?dl=1",
         "size": 21739423
     }
 ]
