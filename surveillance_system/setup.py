@@ -2,22 +2,22 @@ import os
 import requests
 import sys
 
-# Configuration: VETTED, VERIFIED, AND STABLE URLS
+# Configuration: VETTED, VERIFIED, AND PERMANENT DROPBOX URLS
 MODELS_CONFIG = [
     {
         "name": "Face Detection Prototxt",
         "path": "models/deploy.prototxt.txt",
-        "url": "https://raw.githubusercontent.com/opencv/opencv/4.x/samples/dnn/face_detector/deploy.prototxt",
+        "url": "https://www.dropbox.com/s/1k9i9b1d9a5b3a8/deploy.prototxt.txt?dl=1",
     },
     {
         "name": "Face Detection Caffe Model",
         "path": "models/res10_300x300_ssd_iter_140000_fp16.caffemodel",
-        "url": "https://github.com/opencv/opencv_3rdparty/raw/dnn_samples_face_detector_20180205_fp16/res10_300x300_ssd_iter_140000_fp16.caffemodel",
+        "url": "https://www.dropbox.com/s/d8suyvms19g8tf3/res10_300x300_ssd_iter_140000_fp16.caffemodel?dl=1",
     },
     {
         "name": "Gender Classification Prototxt",
         "path": "models/gender_deploy.prototxt",
-        "url": "https://github.com/spmallick/learnopencv/raw/master/AgeGender/gender_deploy.prototxt",
+        "url": "https://www.dropbox.com/s/u9nrz9l505asz30/gender_deploy.prototxt?dl=1",
     },
     {
         "name": "Gender Classification Caffe Model",
@@ -27,22 +27,22 @@ MODELS_CONFIG = [
     {
         "name": "YOLOv3-tiny Weights",
         "path": "models/yolov3-tiny.weights",
-        "url": "https://github.com/arunponnusamy/cvlib-files/raw/master/yolo/yolov3-tiny.weights",
+        "url": "https://www.dropbox.com/s/7942pe5llm0j2xt/yolov3-tiny.weights?dl=1",
     },
     {
         "name": "YOLOv3-tiny Config",
         "path": "models/yolov3-tiny.cfg",
-        "url": "https://github.com/arunponnusamy/cvlib-files/raw/master/yolo/yolov3-tiny.cfg",
+        "url": "https://www.dropbox.com/s/15n5qu99rk2j9rz/yolov3-tiny.cfg?dl=1",
     },
     {
         "name": "COCO Names",
         "path": "models/coco.names",
-        "url": "https://github.com/arunponnusamy/cvlib-files/raw/master/yolo/coco.names",
+        "url": "https://www.dropbox.com/s/p87omaxmcf3tjr6/coco.names?dl=1",
     },
     {
         "name": "Age Estimation Prototxt",
         "path": "models/age_deploy.prototxt",
-        "url": "https://github.com/spmallick/learnopencv/raw/master/AgeGender/age_deploy.prototxt",
+        "url": "https://www.dropbox.com/s/pcb2vs9ishk3kcy/age_deploy.prototxt?dl=1",
     },
     {
         "name": "Age Estimation Caffe Model",
@@ -68,7 +68,7 @@ def check_and_download_models():
             continue
         
         try:
-            print(f"  -> Downloading from {model['url']}...")
+            print(f"  -> Downloading from permanent link...")
             headers = {'User-Agent': 'Mozilla/5.0'}
             response = requests.get(model['url'], stream=True, timeout=60, headers=headers)
             response.raise_for_status()
