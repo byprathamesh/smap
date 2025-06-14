@@ -32,19 +32,19 @@ MODELS_CONFIG = [
     {
         "name": "YOLOv3-tiny Weights",
         "path": "models/yolov3-tiny.weights",
-        "url": "https://pjreddie.com/media/files/yolov3-tiny.weights",
+        "url": "https://github.com/arunponnusamy/cvlib-files/raw/master/yolo/yolov3-tiny.weights",
         "size": 35434756
     },
     {
         "name": "YOLOv3-tiny Config",
         "path": "models/yolov3-tiny.cfg",
-        "url": "https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3-tiny.cfg",
+        "url": "https://github.com/arunponnusamy/cvlib-files/raw/master/yolo/yolov3-tiny.cfg",
         "size": 1904
     },
     {
         "name": "COCO Names",
         "path": "models/coco.names",
-        "url": "https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names",
+        "url": "https://github.com/arunponnusamy/cvlib-files/raw/master/yolo/coco.names",
         "size": 625
     },
     {
