@@ -3,51 +3,56 @@ import requests
 import sys
 import shutil
 
+# The Definitive Fix: Make the script location-aware
+# This gets the directory where setup.py itself is located.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODELS_DIR = os.path.join(BASE_DIR, "models")
+
 # Configuration: VETTED, VERIFIED, AND PERMANENT DROPBOX URLS
 MODELS_CONFIG = [
     {
         "name": "Face Detection Prototxt",
-        "path": "models/deploy.prototxt.txt",
+        "path": os.path.join(MODELS_DIR, "deploy.prototxt.txt"),
         "url": "https://www.dropbox.com/s/1k9i9b1d9a5b3a8/deploy.prototxt.txt?dl=1",
     },
     {
         "name": "Face Detection Caffe Model",
-        "path": "models/res10_300x300_ssd_iter_140000_fp16.caffemodel",
+        "path": os.path.join(MODELS_DIR, "res10_300x300_ssd_iter_140000_fp16.caffemodel"),
         "url": "https://www.dropbox.com/s/d8suyvms19g8tf3/res10_300x300_ssd_iter_140000_fp16.caffemodel?dl=1",
     },
     {
         "name": "Gender Classification Prototxt",
-        "path": "models/gender_deploy.prototxt",
+        "path": os.path.join(MODELS_DIR, "gender_deploy.prototxt"),
         "url": "https://www.dropbox.com/s/u9nrz9l505asz30/gender_deploy.prototxt?dl=1",
     },
     {
         "name": "Gender Classification Caffe Model",
-        "path": "models/gender_net.caffemodel",
+        "path": os.path.join(MODELS_DIR, "gender_net.caffemodel"),
         "url": "https://www.dropbox.com/s/onem26312h8h04n/gender_net.caffemodel?dl=1",
     },
     {
         "name": "YOLOv3-tiny Weights",
-        "path": "models/yolov3-tiny.weights",
+        "path": os.path.join(MODELS_DIR, "yolov3-tiny.weights"),
         "url": "https://www.dropbox.com/s/7942pe5llm0j2xt/yolov3-tiny.weights?dl=1",
     },
     {
         "name": "YOLOv3-tiny Config",
-        "path": "models/yolov3-tiny.cfg",
+        "path": os.path.join(MODELS_DIR, "yolov3-tiny.cfg"),
         "url": "https://www.dropbox.com/s/15n5qu99rk2j9rz/yolov3-tiny.cfg?dl=1",
     },
     {
         "name": "COCO Names",
-        "path": "models/coco.names",
+        "path": os.path.join(MODELS_DIR, "coco.names"),
         "url": "https://www.dropbox.com/s/p87omaxmcf3tjr6/coco.names?dl=1",
     },
     {
         "name": "Age Estimation Prototxt",
-        "path": "models/age_deploy.prototxt",
+        "path": os.path.join(MODELS_DIR, "age_deploy.prototxt"),
         "url": "https://www.dropbox.com/s/pcb2vs9ishk3kcy/age_deploy.prototxt?dl=1",
     },
     {
         "name": "Age Estimation Caffe Model",
-        "path": "models/age_net.caffemodel",
+        "path": os.path.join(MODELS_DIR, "age_net.caffemodel"),
         "url": "https://www.dropbox.com/s/iyv483wz78j1g6p/age_net.caffemodel?dl=1",
     }
 ]
@@ -58,20 +63,21 @@ def print_header(title):
     print("=" * 80)
 
 def check_and_download_models():
-    print_header("Step 1: Verifying AI Models (Forcing Clean Download)")
+    print_header("Step 1: Verifying AI Models (Location-Aware)")
     
-    # --- The Self-Cleaning Step ---
-    print("[INFO] Deleting old models folder to ensure a clean slate...")
-    if os.path.exists('models'):
-        shutil.rmtree('models')
-    os.makedirs("models", exist_ok=True)
-    print("[SUCCESS] Clean slate ready.")
-    
+    print(f"[INFO] Ensuring models are saved in the correct directory: {MODELS_DIR}")
+    os.makedirs(MODELS_DIR, exist_ok=True)
     all_models_valid = True
     
     for model in MODELS_CONFIG:
-        print(f"[INFO] Downloading: {model['name']}...")
+        print(f"[INFO] Checking for: {model['name']}...")
+        # Use the absolute path for all checks
+        if os.path.exists(model['path']):
+            print(f"  -> [OK] File already exists. Skipping.")
+            continue
+        
         try:
+            print(f"  -> Downloading from permanent link...")
             headers = {'User-Agent': 'Mozilla/5.0'}
             response = requests.get(model['url'], stream=True, timeout=60, headers=headers)
             response.raise_for_status()
