@@ -88,7 +88,8 @@ def download_file_with_progress(url, filepath, filename):
         return True
         
     except requests.exceptions.RequestException as e:
-        print(f"\n[ERROR] Failed to download {filename}: {e}")
+        print(f"\n[ERROR] Failed to download {filename}. Please check your internet connection and the URL.")
+        print(f"[DEBUG] Network error details: {e}")
         return False
     except Exception as e:
         print(f"\n[ERROR] Unexpected error downloading {filename}: {e}")

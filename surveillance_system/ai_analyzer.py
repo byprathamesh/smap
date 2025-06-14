@@ -19,16 +19,27 @@ class AIAnalyzer:
         self.age_net = None
         self.class_names = []
         
-        # Load YOLOv3-tiny object detection model
-        self._load_yolo_model()
-        
-        # Load gender classification model
-        self._load_gender_classification_model()
-        
-        # Load age estimation model
-        self._load_age_estimation_model()
-        
-        print("Advanced AIAnalyzer initialized successfully")
+        try:
+            # Load YOLOv3-tiny object detection model
+            self._load_yolo_model()
+            
+            # Load gender classification model
+            self._load_gender_classification_model()
+            
+            # Load age estimation model
+            self._load_age_estimation_model()
+            
+            # Verify critical models are loaded
+            if self.yolo_net is None or self.gender_net is None:
+                raise FileNotFoundError("Critical AI models missing")
+                
+            print("Advanced AIAnalyzer initialized successfully")
+            
+        except (cv2.error, FileNotFoundError, OSError) as e:
+            print("[FATAL ERROR] A required AI model file is missing or corrupted. Please run the downloader scripts again.")
+            print(f"[DEBUG] Model loading error: {e}")
+            print("[INFO] Run 'python download_models.py' and 'python download_advanced_models.py' to fix this issue.")
+            raise SystemExit(1)
     
     def _load_yolo_model(self):
         """

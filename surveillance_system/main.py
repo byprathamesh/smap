@@ -94,14 +94,20 @@ def main():
         last_status_time = time.time()
         status_interval = 300  # Print status every 5 minutes
         
-        while True:
-            time.sleep(1)
-            
-            # Periodically print system status
-            current_time = time.time()
-            if current_time - last_status_time >= status_interval:
-                print_status_update(processors)
-                last_status_time = current_time
+        try:
+            while True:
+                time.sleep(1)
+                
+                # Periodically print system status
+                current_time = time.time()
+                if current_time - last_status_time >= status_interval:
+                    print_status_update(processors)
+                    last_status_time = current_time
+        
+        except Exception as e:
+            print(f"[CRITICAL] An unexpected error occurred: {e}")
+            print("[INFO] Initiating emergency shutdown due to critical error...")
+            raise  # Re-raise to trigger the outer exception handler
     
     except KeyboardInterrupt:
         print(f"\n[INFO] Shutdown signal received. Stopping all camera processors...")

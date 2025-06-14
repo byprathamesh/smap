@@ -2,6 +2,7 @@ import cv2
 import threading
 import time
 import math
+import os
 from datetime import datetime
 from ai_analyzer import AIAnalyzer
 from alert_system import trigger_alert, is_night_time
@@ -138,10 +139,22 @@ class CameraProcessor:
             bool: True if camera was successfully initialized
         """
         try:
+            # Check if it's a file path and verify it exists
+            if isinstance(self.camera_url, str) and (self.camera_url.endswith('.mp4') or 
+                                                   self.camera_url.endswith('.avi') or
+                                                   self.camera_url.endswith('.webm') or
+                                                   self.camera_url.endswith('.mov')):
+                if not os.path.exists(self.camera_url):
+                    print(f"[ERROR] Video file not found at path: {self.camera_url}")
+                    print("[INFO] Please check the file path in config.py")
+                    return False
+            
             self.cap = cv2.VideoCapture(self.camera_url)
             
             if not self.cap.isOpened():
-                print(f"Error: Could not open camera stream {self.camera_url}")
+                print(f"[ERROR] Could not open camera/video stream: {self.camera_url}")
+                if isinstance(self.camera_url, str) and self.camera_url.startswith('http'):
+                    print("[INFO] If this is an IP camera, check network connectivity and camera settings")
                 return False
             
             # Set buffer size to reduce latency
@@ -150,14 +163,17 @@ class CameraProcessor:
             # Test read a frame
             ret, frame = self.cap.read()
             if not ret or frame is None:
-                print(f"Error: Could not read initial frame from camera {self.camera_id}")
+                print(f"[ERROR] Could not read initial frame from camera {self.camera_id}")
                 return False
             
             print(f"Camera {self.camera_id} initialized successfully")
             return True
             
+        except cv2.error as e:
+            print(f"[ERROR] OpenCV error initializing camera {self.camera_id}: {e}")
+            return False
         except Exception as e:
-            print(f"Exception initializing camera {self.camera_id}: {e}")
+            print(f"[ERROR] Unexpected error initializing camera {self.camera_id}: {e}")
             return False
     
     def _cleanup_camera(self):
@@ -446,8 +462,12 @@ class CameraProcessor:
             cv2.putText(display_frame, status_text, (threat_x, 50), font, threat_font_scale, color, threat_thickness)
             
             # Step 3: Display the final frame
-            window_name = f"WatchHer - {self.camera_name}"
-            cv2.imshow(window_name, display_frame)
+            try:
+                window_name = f"WatchHer - {self.camera_name}"
+                cv2.imshow(window_name, display_frame)
+            except cv2.error as e:
+                print(f"[ERROR] Display error for camera {self.camera_id}: {e}")
+                print("[INFO] This may be due to display/GUI issues. Check if display is available.")
             
         except Exception as e:
             print(f"Error displaying frame for camera {self.camera_id}: {e}")
