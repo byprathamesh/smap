@@ -1,0 +1,38 @@
+# Virtual Environment
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Model files (too large for git)
+*.pt
+*.caffemodel
+
+# Database files
+*.db
+
+# Debug and temporary files
+debug_frames/
+test_frame.jpg
+*.mp4
+*.webm
+*.avi
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary test files
+create_test_video.py
+gpu_verification_final.py
+test_people_video.mp4 

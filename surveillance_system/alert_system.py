@@ -2,6 +2,7 @@ import os
 import datetime
 import cv2
 import config
+from database import insert_alert
 
 
 # Global dictionary to track last alert times for cooldown management
@@ -9,15 +10,16 @@ import config
 last_alert_times = {}
 
 
-def trigger_alert(frame, camera_id, alert_type, details):
+def trigger_alert(frame, camera_id, alert_type, details, threat_score=0):
     """
     Trigger an alert with cooldown management, console logging, and snapshot saving.
     
     Args:
         frame: The video frame (numpy array) to save as evidence
         camera_id: Identifier for the camera that triggered the alert
-        alert_type: Type of alert (e.g., 'lone_woman', 'group_surrounding')
+        alert_type: Type of alert (e.g., 'lone_woman', 'group_surrounding', 'distress_signal', 'surrounded')
         details: Additional details about the alert
+        threat_score: Calculated threat score for this alert
     
     Returns:
         bool: True if alert was triggered, False if blocked by cooldown
@@ -56,7 +58,10 @@ def trigger_alert(frame, camera_id, alert_type, details):
     else:
         print(f"Warning: Failed to save alert snapshot")
     
-    # Step 5: Update cooldown tracking
+    # Step 5: Store alert in database
+    insert_alert(camera_id, alert_type, threat_score=threat_score, details=details)
+    
+    # Step 6: Update cooldown tracking
     last_alert_times[alert_key] = current_time
     
     # Optional: Clean up old alert files if we exceed the maximum

@@ -3,4 +3,5 @@ opencv-python
 numpy
 deepface
 requests
-flask 
+flask
+folium 
