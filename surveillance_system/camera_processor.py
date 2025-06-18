@@ -234,7 +234,7 @@ class CameraProcessor:
             risk_settings = config.DETECTION_SETTINGS['risk_scoring']
             
             # Check for lone female (single person detected and female)
-            if len(detections) == 1 and detections[0]['gender'] == 'Female':
+            if len(detections) == 1 and detections[0]['gender'] == 'Woman':
                 threat_score += risk_settings['lone_female_score']
                 print(f"[RSA] Lone female detected (+{risk_settings['lone_female_score']} points)")
             
@@ -253,9 +253,9 @@ class CameraProcessor:
                     children.append(person)
                 elif age_category > risk_settings['elderly_age_threshold']:
                     elderly.append(person)
-                elif gender == 'Female':
+                elif gender == 'Woman':
                     females.append(person)
-                elif gender == 'Male':
+                elif gender == 'Man':
                     males.append(person)
             
             # Apply demographic score modifiers
