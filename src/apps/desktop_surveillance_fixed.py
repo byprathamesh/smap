@@ -160,14 +160,14 @@ class DesktopSurveillanceApp:
         
         # Start button
         self.start_btn = tk.Button(button_frame, text="▶️ Start Analysis", 
-                                  command=self.start_monitoring,
+                                  command=self.start_analysis,
                                   font=('Segoe UI', 11, 'bold'), bg='#48bb78', fg='#ffffff',
                                   bd=0, padx=20, pady=8, relief='flat')
         self.start_btn.pack(fill='x', pady=(0, 5))
         
         # Stop button
         self.stop_btn = tk.Button(button_frame, text="⏹️ Stop Analysis", 
-                                 command=self.stop_monitoring,
+                                 command=self.stop_analysis,
                                  font=('Segoe UI', 11, 'bold'), bg='#f56565', fg='#ffffff',
                                  bd=0, padx=20, pady=8, relief='flat', state='disabled')
         self.stop_btn.pack(fill='x')
@@ -457,25 +457,25 @@ class DesktopSurveillanceApp:
         """Update stats display with detailed info"""
         # Color-code risk
         if self.risk_score < 30:
-            risk_color = '#27ae60'
+            risk_color = '#48bb78'  # Green
         elif self.risk_score < 60:
-            risk_color = '#f39c12'
+            risk_color = '#ffd700'  # Yellow
         else:
-            risk_color = '#e74c3c'
+            risk_color = '#f56565'  # Red
         
-        self.risk_label.config(text=f"🎯 Risk Score: {self.risk_score:.1f}%", fg=risk_color)
-        self.fps_label.config(text=f"⚡ FPS: {self.fps:.1f}")
-        self.detection_label.config(text=f"👥 People: {self.detection_count}")
+        self.risk_label.config(text=f"{self.risk_score:.1f}%", fg=risk_color)
+        self.fps_label.config(text=f"{self.fps:.1f}")
+        self.people_label.config(text=f"{self.detection_count}")
         
         # Show gender breakdown
         if hasattr(self, 'men_count') and hasattr(self, 'women_count'):
-            self.gender_label.config(text=f"👨👩 Gender: {self.men_count}M/{self.women_count}F")
+            self.gender_label.config(text=f"{self.men_count}M|{self.women_count}F")
         
         # Show pose detection count
         if hasattr(self, 'pose_count'):
-            self.pose_label.config(text=f"🤸 Poses: {self.pose_count}")
+            self.poses_label.config(text=f"{self.pose_count}")
         
-        self.frame_label.config(text=f"📸 Frames: {self.frame_count}")
+        self.frames_label.config(text=f"{self.frame_count}")
     
     def stop_analysis(self):
         """Stop analysis"""
