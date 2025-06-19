@@ -114,34 +114,34 @@ class AIAnalyzer:
                 boxes = person_results[0].boxes
                 keypoints = person_results[0].keypoints if hasattr(person_results[0], 'keypoints') and person_results[0].keypoints is not None else None
                 
-                for i, box in enumerate(boxes):
-                    class_id = int(box.cls[0])
-                    confidence = float(box.conf[0])
-                    class_name = self.person_detector.names[class_id]
-                    
+            for i, box in enumerate(boxes):
+                class_id = int(box.cls[0])
+                confidence = float(box.conf[0])
+                class_name = self.person_detector.names[class_id]
+                
                     if class_name == 'person' and confidence > 0.25:
-                        # Extract bounding box coordinates
-                        x1, y1, x2, y2 = map(int, box.xyxy[0])
-                        
-                        # Get pose keypoints for this person
-                        person_keypoints = None
-                        if keypoints is not None and i < len(keypoints.data):
-                            person_keypoints = keypoints.data[i].cpu().numpy() if hasattr(keypoints.data[i], 'cpu') else keypoints.data[i]
-                        
-                        detection = {
-                            'bbox': [x1, y1, x2, y2],
-                            'confidence': confidence,
-                            'class': 'person',
-                            'keypoints': person_keypoints,
-                            'age': None,
-                            'gender': None,
-                            'has_harmful_object': False,
-                            'harmful_objects_nearby': [],
+                # Extract bounding box coordinates
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                
+                    # Get pose keypoints for this person
+                    person_keypoints = None
+                    if keypoints is not None and i < len(keypoints.data):
+                        person_keypoints = keypoints.data[i].cpu().numpy() if hasattr(keypoints.data[i], 'cpu') else keypoints.data[i]
+                    
+                    detection = {
+                        'bbox': [x1, y1, x2, y2],
+                        'confidence': confidence,
+                        'class': 'person',
+                        'keypoints': person_keypoints,
+                        'age': None,
+                        'gender': None,
+                        'has_harmful_object': False,
+                        'harmful_objects_nearby': [],
                             'area': (x2 - x1) * (y2 - y1),  # For sorting by size
                             'face_bbox': None,
                             'face_confidence': 0.0
-                        }
-                        person_detections.append(detection)
+                    }
+                    person_detections.append(detection)
             
             # Process object detections for weapons with enhanced filtering
             if object_results and object_results[0].boxes:
@@ -184,10 +184,10 @@ class AIAnalyzer:
                     # Sharp objects
                     elif class_name in ['scissors', 'fork'] and confidence > 0.18:
                         if self._validate_detection(class_name, confidence, bbox_area, x1, y1, x2, y2, frame.shape):
-                            harmful_objects.append({
-                                'bbox': [x1, y1, x2, y2],
-                                'confidence': confidence,
-                                'class': class_name,
+                    harmful_objects.append({
+                        'bbox': [x1, y1, x2, y2],
+                        'confidence': confidence,
+                        'class': class_name,
                                 'center': [(x1 + x2) // 2, (y1 + y2) // 2],
                                 'area': bbox_area
                             })
@@ -221,8 +221,8 @@ class AIAnalyzer:
                         person_crop = frame[y1:y2, x1:x2]
                         detection['age'], detection['gender'] = self._estimate_attributes_fallback(person_crop)
                     except:
-                        detection['age'] = 25
-                        detection['gender'] = 'unknown'
+                    detection['age'] = 25
+                    detection['gender'] = 'unknown'
             
             # **WatchHer Safety Analysis**
             safety_analysis = self.analyze_women_safety_scenarios(person_detections, frame.shape)
@@ -312,7 +312,7 @@ class AIAnalyzer:
             else:
                 # Fallback method without face detector
                 detection['age'], detection['gender'] = self._estimate_attributes_fallback(person_crop)
-                
+            
         except Exception as e:
             # Fallback values if analysis fails
             detection['age'] = 25
@@ -641,7 +641,7 @@ class AIAnalyzer:
                 x2, y2, conf2 = keypoints[pt2]
                 
                 if conf1 > 0.5 and conf2 > 0.5:
-                    cv2.line(frame, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 2)
+                    cv2.line(frame, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 2) 
     
     def analyze_women_safety_scenarios(self, detections, frame_shape):
         """
