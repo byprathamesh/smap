@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
-WatchHer Camera Processor - Advanced Version
-Supports both client-side webcam frames and server-side video file processing
-Optimized for real-time performance with comprehensive risk scoring
+Camera Processor for WatchHer System
+Handles video capture, processing, and AI analysis integration
 """
+
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 import cv2
 import numpy as np
@@ -11,7 +14,9 @@ import time
 import math
 import threading
 from datetime import datetime
-from ai_analyzer import AIAnalyzer
+
+# WatchHer core imports
+from src.core.ai_analyzer import AIAnalyzer
 
 class CameraProcessor:
     """Advanced camera processor with sophisticated risk assessment"""

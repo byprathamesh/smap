@@ -1,19 +1,32 @@
 #!/usr/bin/env python3
 """
-WatchHer AI Analyzer - YOLO-Based Version
-Integrates YOLOv11-Pose for person detection, pose estimation, and YOLO face detection
-Fast, real-time performance with no TensorFlow dependencies
+WatchHer AI Analyzer - Core AI Engine for Women's Safety Monitoring
+Enhanced with comprehensive safety analysis and threat detection
 """
+
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 import cv2
 import numpy as np
-from ultralytics import YOLO
-import logging
-import warnings
-import torch
+import time
+from datetime import datetime
 
-# Import our custom YOLO face detector
-from yolo_face_detector import YOLOFaceDetector
+try:
+    from ultralytics import YOLO
+    YOLO_AVAILABLE = True
+except ImportError:
+    print("[WARNING] YOLO not available. Install with: pip install ultralytics")
+    YOLO_AVAILABLE = False
+
+# WatchHer face detection
+try:
+    from src.core.yolo_face_detector import YOLOFaceDetector
+    FACE_DETECTOR_AVAILABLE = True
+except ImportError:
+    print("[WARNING] Face detector not available")
+    FACE_DETECTOR_AVAILABLE = False
 
 # Suppress warnings for cleaner output
 warnings.filterwarnings("ignore")

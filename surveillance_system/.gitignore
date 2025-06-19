@@ -1,3 +1,7 @@
+.states
+.web
+*.py[cod]
+assets/external/
 # Virtual Environment
 venv/
 __pycache__/
@@ -35,4 +39,4 @@ Thumbs.db
 # Temporary test files
 create_test_video.py
 gpu_verification_final.py
-test_people_video.mp4 
+test_people_video.mp4
