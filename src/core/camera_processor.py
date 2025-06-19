@@ -107,17 +107,35 @@ class CameraProcessor:
             # **WatchHer AI Analysis**
             try:
                 # New format returns 3 values: people, weapons, safety_analysis
-                detections, harmful_objects, safety_analysis = self.analyzer.analyze_frame(frame_np)
-                self.last_detections = detections
-                self.last_harmful_objects = harmful_objects
+                result = self.analyzer.analyze_frame(frame_np)
+                if result is None:
+                    # Handle case where analysis returns None
+                    detections, harmful_objects, safety_analysis = [], [], {'overall_threat_level': 'SAFE'}
+                elif len(result) == 3:
+                    detections, harmful_objects, safety_analysis = result
+                elif len(result) == 2:
+                    # Fallback for old format (2 values)
+                    detections, harmful_objects = result
+                    safety_analysis = {'overall_threat_level': 'SAFE', 'lone_women': [], 
+                                     'surrounded_women': [], 'women_in_danger': [], 'distress_signals': []}
+                else:
+                    # Unexpected result format
+                    detections, harmful_objects, safety_analysis = [], [], {'overall_threat_level': 'SAFE'}
+                
+                self.last_detections = detections if detections is not None else []
+                self.last_harmful_objects = harmful_objects if harmful_objects is not None else []
+                self.last_safety_analysis = safety_analysis if safety_analysis is not None else {'overall_threat_level': 'SAFE'}
+                
+            except Exception as e:
+                print(f"[ERROR] AI analysis failed: {e}")
+                # Set safe defaults
+                detections = []
+                harmful_objects = []
+                safety_analysis = {'overall_threat_level': 'SAFE', 'lone_women': [], 
+                                 'surrounded_women': [], 'women_in_danger': [], 'distress_signals': []}
+                self.last_detections = []
+                self.last_harmful_objects = []
                 self.last_safety_analysis = safety_analysis
-            except ValueError:
-                # Fallback for old format (2 values)
-                detections, harmful_objects = self.analyzer.analyze_frame(frame_np)
-                self.last_detections = detections
-                self.last_harmful_objects = harmful_objects
-                self.last_safety_analysis = {'overall_threat_level': 'SAFE', 'lone_women': [], 
-                                           'surrounded_women': [], 'women_in_danger': [], 'distress_signals': []}
             
             # Calculate comprehensive risk score
             self.current_risk_score = self._calculate_risk_score(detections)
@@ -278,8 +296,9 @@ class CameraProcessor:
         
         # **WatchHer Safety Overlay**
         safety_analysis = getattr(self, 'last_safety_analysis', None)
-        if safety_analysis:
-            overlay_frame = self.analyzer.draw_safety_overlay(overlay_frame, safety_analysis)
+        # DISABLED: Large green overlay interferes with video display
+        # if safety_analysis:
+        #     overlay_frame = self.analyzer.draw_safety_overlay(overlay_frame, safety_analysis)
         
         # Add system status overlay
         self._draw_system_status(overlay_frame, detections)
@@ -287,23 +306,10 @@ class CameraProcessor:
         return overlay_frame
     
     def _draw_system_status(self, frame, detections):
-        """Draw system status information"""
+        """Draw minimal system status information"""
         h, w = frame.shape[:2]
         
-        # Semi-transparent overlay for status
-        overlay = frame.copy()
-        cv2.rectangle(overlay, (10, 10), (400, 120), (0, 0, 0), -1)
-        frame[:] = cv2.addWeighted(frame, 0.7, overlay, 0.3, 0)[:]
-        
-        # Status text
-        status_lines = [
-            f"WatchHer AI Surveillance System",
-            f"People Detected: {len(detections)}",
-            f"Risk Score: {self.current_risk_score:.1f}/100.0",
-            f"FPS: {self.current_fps:.1f} | Frame: {self.frame_count}"
-        ]
-        
-        # Color code risk score
+        # Simple status text at bottom-right corner (minimal interference)
         risk_color = (0, 255, 0)  # Green
         if self.current_risk_score > 30:
             risk_color = (0, 255, 255)  # Yellow
@@ -312,22 +318,16 @@ class CameraProcessor:
         if self.current_risk_score > 80:
             risk_color = (0, 0, 255)  # Red
         
-        for i, line in enumerate(status_lines):
-            color = risk_color if "Risk Score" in line else (255, 255, 255)
-            cv2.putText(frame, line, (15, 30 + i * 20),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+        # Minimal status text at bottom-right
+        status_text = f"Risk: {self.current_risk_score:.1f}% | FPS: {self.current_fps:.1f}"
+        text_size = cv2.getTextSize(status_text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
+        text_x = w - text_size[0] - 10
+        text_y = h - 10
         
-        # Draw threat level indicator
-        threat_level = "SAFE"
-        if self.current_risk_score > 70:
-            threat_level = "HIGH RISK"
-        elif self.current_risk_score > 40:
-            threat_level = "MODERATE"
-        elif self.current_risk_score > 15:
-            threat_level = "LOW RISK"
-        
-        cv2.putText(frame, f"Status: {threat_level}", (w - 200, 30),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, risk_color, 2)
+        # Small background for text readability
+        cv2.rectangle(frame, (text_x - 5, text_y - 20), (w - 5, h - 5), (0, 0, 0), -1)
+        cv2.putText(frame, status_text, (text_x, text_y), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, risk_color, 1)
     
     def _update_fps(self):
         """Update FPS counter"""
