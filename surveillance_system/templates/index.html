@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WatchHer - AI Surveillance System</title>
+    
+    <!-- CSS Dependencies -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <!-- JavaScript Dependencies -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body class="bg-black text-white">
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <h1 class="title">
+                <span class="title-icon">👁️</span>
+                WatchHer AI Surveillance System
+            </h1>
+            <div class="system-status" id="systemStatus">
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">System Inactive</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="main-content">
+        <div class="container">
+            <div class="content-grid">
+                
+                <!-- Control Panel -->
+                <section class="control-panel panel">
+                    <h2 class="panel-title">System Control</h2>
+                    
+                    <div class="control-buttons">
+                        <button id="startBtn" class="btn btn-success">
+                            🎥 Start Analysis
+                        </button>
+                        <button id="stopBtn" class="btn btn-danger" disabled>
+                            ⏹️ Stop Analysis
+                        </button>
+                    </div>
+                    
+                    <div class="system-info">
+                        <div class="info-item">
+                            <span class="label">Processing:</span>
+                            <span id="processingStatus" class="status-inactive">Inactive</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Camera:</span>
+                            <span id="cameraStatus" class="status-inactive">Disconnected</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">AI Models:</span>
+                            <span class="text-white">YOLOv11 + DeepFace</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Video Feed -->
+                <section class="video-section panel">
+                    <h2 class="panel-title">Live Video Feed</h2>
+                    
+                    <!-- Webcam Permission Notice -->
+                    <div id="permissionNotice" class="permission-notice">
+                        <div class="notice-icon">📹</div>
+                        <h3>Camera Access Required</h3>
+                        <p>Please allow camera access to start surveillance analysis</p>
+                    </div>
+                    
+                    <!-- Video Container -->
+                    <div class="video-container">
+                        <!-- Hidden webcam video for capture -->
+                        <video id="webcamVideo" autoplay playsinline muted style="display: none;"></video>
+                        
+                        <!-- Processed video display -->
+                        <div class="video-wrapper">
+                            <img id="processedVideo" class="video-display" alt="Processed Video Feed" />
+                            <canvas id="captureCanvas" style="display: none;"></canvas>
+                        </div>
+                        
+                        <!-- Video Overlay Info -->
+                        <div class="video-overlay">
+                            <div class="overlay-stats">
+                                <div class="stat-item">
+                                    <span class="stat-label">FPS:</span>
+                                    <span id="fpsDisplay" class="stat-value">0.0</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">People:</span>
+                                    <span id="peopleCount" class="stat-value">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Risk Assessment -->
+                <section class="risk-section panel">
+                    <h2 class="panel-title">Risk Assessment</h2>
+                    
+                    <div class="risk-display">
+                        <div class="risk-score-container">
+                            <div class="risk-score" id="riskScore">0.0</div>
+                            <div class="risk-unit">/ 100</div>
+                        </div>
+                        
+                        <div class="threat-level">
+                            <span class="threat-label">Threat Level:</span>
+                            <span id="threatLevel" class="threat-value threat-safe">SAFE</span>
+                        </div>
+                        
+                        <!-- Risk Progress Bar -->
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div id="riskProgress" class="progress-fill progress-safe"></div>
+                            </div>
+                            <div class="progress-labels">
+                                <span class="progress-label">Safe</span>
+                                <span class="progress-label">Low</span>
+                                <span class="progress-label">Moderate</span>
+                                <span class="progress-label">High</span>
+                                <span class="progress-label">Critical</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Dynamic Map -->
+                <section class="map-section panel">
+                    <h2 class="panel-title">Area Risk Visualization</h2>
+                    
+                    <div class="map-container">
+                        <div id="riskMap" class="risk-map"></div>
+                        
+                        <!-- Map Legend -->
+                        <div class="map-legend">
+                            <h4 class="legend-title">Risk Levels</h4>
+                            <div class="legend-items">
+                                <div class="legend-item">
+                                    <div class="legend-color legend-green"></div>
+                                    <span>Safe (0-15)</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color legend-white"></div>
+                                    <span>Low (15-30)</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color legend-grey"></div>
+                                    <span>Moderate (30-70)</span>
+                                </div>
+                                <div class="legend-item">
+                                    <div class="legend-color legend-red"></div>
+                                    <span>High (70+)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-info">
+                    <span>WatchHer AI Surveillance System</span>
+                    <span class="separator">|</span>
+                    <span>Real-time Threat Detection</span>
+                    <span class="separator">|</span>
+                    <span id="timestamp">Timestamp: --</span>
+                </div>
+                
+                <div class="footer-status">
+                    <div class="performance-stats">
+                        <span id="performanceInfo">System Ready</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Custom JavaScript -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    
+    <script>
+        // Initialize WatchHer application
+        document.addEventListener('DOMContentLoaded', function() {
+            const app = new WatchHerApp();
+            app.initialize();
+        });
+    </script>
+</body>
+</html> 

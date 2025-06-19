@@ -1,244 +1,280 @@
+#!/usr/bin/env python3
+"""
+WatchHer AI Analyzer - Advanced Version
+Integrates YOLOv11-Pose for person detection, pose estimation, and harmful object detection
+Optimized for real-time performance with selective DeepFace analysis
+"""
+
 import cv2
+import numpy as np
 from ultralytics import YOLO
 from deepface import DeepFace
-import tensorflow as tf
+import logging
+import warnings
+
+# Suppress warnings for cleaner output
+warnings.filterwarnings("ignore")
+logging.getLogger("ultralytics").setLevel(logging.WARNING)
 
 class AIAnalyzer:
+    """Advanced AI analyzer with YOLOv11-Pose and harmful object detection"""
+    
+    # Harmful objects to detect for threat assessment
+    HARMFUL_OBJECTS = ['knife', 'gun', 'sword', 'baseball bat', 'firearm', 'club', 'pistol', 'rifle', 'weapon']
+    
     def __init__(self):
-        print("[INFO] Loading YOLOv8 pose estimation model...")
-        self.person_detector = YOLO('yolov8n-pose.pt')
-
-        # **PART 3 FIX**: Ensure Explicit Device Placement for YOLO
+        self.person_detector = None
+        self.model_loaded = False
+        self._initialize_models()
+    
+    def _initialize_models(self):
+        """Initialize YOLOv11-Pose model for detection and pose estimation"""
         try:
+            print("[INFO] Loading YOLOv11 pose estimation model...")
+            self.person_detector = YOLO('yolo11n-pose.pt')
+            
+            # Test GPU availability
             import torch
             if torch.cuda.is_available():
+                print(f"[INFO] ✅ CUDA detected: {torch.cuda.get_device_name()}")
                 self.person_detector.to('cuda')
-                print("[INFO] ✅ YOLO model moved to GPU (CUDA)")
-                print(f"[INFO] YOLO Device: {self.person_detector.device}")
             else:
                 print("[INFO] ⚠️ CUDA not available, YOLO using CPU")
-        except Exception as e:
-            print(f"[WARNING] Could not move YOLO to GPU: {e}")
-
-        # **PART 3 FIX**: Deep-check TensorFlow/DeepFace GPU Usage
-        print("[INFO] Checking TensorFlow GPU availability...")
-        tf_gpus = tf.config.list_physical_devices('GPU')
-        if tf_gpus:
-            print(f"[INFO] ✅ TensorFlow detected GPU devices: {[gpu.name for gpu in tf_gpus]}")
+            
+            # Test TensorFlow for DeepFace
             try:
-                # Ensure GPU memory growth is enabled
-                for gpu in tf_gpus:
-                    tf.config.experimental.set_memory_growth(gpu, True)
-                print("[INFO] ✅ TensorFlow GPU memory growth enabled")
-            except Exception as e:
-                print(f"[WARNING] Could not set TensorFlow GPU memory growth: {e}")
-        else:
-            print("[INFO] ⚠️ TensorFlow will run on CPU - no GPU devices found")
-
-        print("[INFO] YOLOv8 pose model loaded successfully!")
-        self.ready = True
-
+                import tensorflow as tf
+                gpus = tf.config.list_physical_devices('GPU')
+                if gpus:
+                    print(f"[INFO] ✅ TensorFlow GPU detected: {len(gpus)} device(s)")
+                else:
+                    print("[INFO] ⚠️ TensorFlow will run on CPU - no GPU devices found")
+            except:
+                print("[INFO] ⚠️ TensorFlow GPU check failed")
+            
+            self.model_loaded = True
+            print("[INFO] YOLOv11 pose model loaded successfully!")
+            
+        except Exception as e:
+            print(f"[ERROR] Failed to load YOLO model: {e}")
+            self.model_loaded = False
+    
     def is_ready(self):
-        """
-        Check if the analyzer is ready for processing.
-
-        Returns:
-            bool: True if analyzer is ready
-        """
-        return self.ready
-
+        """Check if analyzer is ready for inference"""
+        return self.model_loaded and self.person_detector is not None
+    
     def analyze_frame(self, frame):
         """
-        Three-stage AI analysis pipeline:
-        1. Detect people and poses using YOLOv8-pose
-        2. Check for distress signals from pose keypoints
-        3. Analyze detected people for age and gender using DeepFace (optimized for top 2 largest)
-
-        Returns:
-            List of dictionaries containing bounding box, gender, age, and distress status for each detected person
-        """
-        detections = []
-
-        # **PART 3 FIX**: Add TensorFlow device logging before DeepFace calls
-        tf_gpus = tf.config.list_physical_devices('GPU')
-        if tf_gpus:
-        else:
-
-        # Stage 1: Detect people and poses using YOLO
-        results = self.person_detector.predict(frame, verbose=False)
-
-        # NEW DEBUG: Check YOLO device and raw detection count
-
-        # Count total raw detections across all results
-        total_raw_detections = 0
-        for result in results:
-            if result.boxes is not None:
-                total_raw_detections += len(result.boxes)
-
-        # **PART 3 OPTIMIZATION**: Collect all person detections first, then optimize DeepFace calls
-        person_candidates = []
-
-        # Stage 2: Collect all person detections
-        for result in results:
-            boxes = result.boxes
-            keypoints = result.keypoints if hasattr(result, 'keypoints') else None
-
-            if boxes is not None:
-
-                for i, box in enumerate(boxes):
-                    # Get confidence and class
-                    confidence = float(box.conf[0])
-                    class_id = int(box.cls[0])
-
-                    # NEW DEBUG: Detailed box processing info
-
-                    # Filter for 'person' class (class_id = 0 in COCO dataset) with confidence > 0.5
-                    if class_id == 0 and confidence > 0.5:
-                        # Get bounding box coordinates
-                        x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-                        x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-
-                        # Calculate bounding box area for sorting
-                        bbox_area = (x2 - x1) * (y2 - y1)
-
-                        # Stage 2: Check for distress pose if keypoints are available
-                        distress_detected = False
-                        if keypoints is not None and len(keypoints.xy) > i:
-                            person_keypoints = keypoints.xy[i].cpu().numpy()
-                            distress_detected = self._check_distress_pose(person_keypoints, x1, y1, x2, y2)
-                        else:
-
-                        # Crop the person from the frame
-                        cropped_person = frame[y1:y2, x1:x2]
-
-                        # Check crop size
-                        if cropped_person.shape[0] < 30 or cropped_person.shape[1] < 30:
-                            continue
-
-                        # Store candidate with all data needed for DeepFace processing
-                        person_candidates.append({
-                            'box': [x1, y1, x2-x1, y2-y1],  # Convert to x,y,w,h format
-                            'bbox_area': bbox_area,
-                            'confidence': confidence,
-                            'distress': distress_detected,
-                            'cropped_person': cropped_person,
-                            'coords': (x1, y1, x2, y2)
-                        })
-
-                    else:
-            else:
-
-        # **PART 3 OPTIMIZATION**: Sort by bounding box area (largest first) and limit DeepFace calls
-        person_candidates.sort(key=lambda x: x['bbox_area'], reverse=True)
-        max_deepface_calls = 2  # Only analyze the 2 largest people for performance
-
-        # Stage 3: Process all candidates, but only run DeepFace on the largest ones
-        for idx, candidate in enumerate(person_candidates):
-            # Initialize default values
-            gender = "Unknown"
-            age_range = "Unknown"
-
-            # Only run DeepFace on the largest detections for performance
-            if idx < max_deepface_calls:
-                try:
-                    # Stage 3: Analyze the cropped person image with DeepFace
-                    analysis = DeepFace.analyze(
-                        img_path=candidate['cropped_person'],
-                        actions=['age', 'gender'],
-                        enforce_detection=False,
-                        detector_backend='opencv'  # Using opencv instead of retinaface for better reliability
-                    )
-
-                    # Extract gender and age (handle both list and dict responses)
-                    if isinstance(analysis, list):
-                        analysis = analysis[0]
-
-                    gender = analysis.get('dominant_gender', 'Unknown')
-                    age = analysis.get('age', 25)  # Default age if not detected
-
-                    # Convert age to age range for compatibility
-                    if age < 18:
-                        age_range = f"{max(0, age-2)}-{age+2}"
-                    elif age < 65:
-                        age_range = f"{age-3}-{age+3}"
-                    else:
-                        age_range = f"{age-5}-{age+5}"
-
-                    # NEW DEBUG: DeepFace success result
-
-                except Exception as e:
-                    # Keep the detection even if DeepFace fails
-                    gender = "Unknown"
-                    age_range = "Unknown"
-            else:
-
-            # Create detection dictionary with expected keys
-            detection_dict = {
-                'box': candidate['box'],
-                'gender': gender,
-                'age_range': age_range,
-                'confidence': candidate['confidence'],
-                'distress': candidate['distress']
-            }
-            detections.append(detection_dict)
-
-        # **PART 1 FIX**: Critical debugging for multi-person detection
-        return detections
-
-    def _check_distress_pose(self, keypoints, x1, y1, x2, y2):
-        """
-        Check if the detected person is showing distress signals based on pose keypoints.
-
+        Comprehensive frame analysis with person detection, pose estimation, and harmful object detection
+        
         Args:
-            keypoints: YOLO pose keypoints array [17, 2] for COCO format
-            x1, y1, x2, y2: Bounding box coordinates
-
+            frame: Input frame (numpy array)
+            
         Returns:
-            bool: True if distress signal detected, False otherwise
+            List of detection dictionaries with enhanced information
         """
+        if not self.is_ready():
+            return []
+        
         try:
-            # COCO pose keypoints indices:
-            # 0: nose, 1: left_eye, 2: right_eye, 3: left_ear, 4: right_ear
-            # 5: left_shoulder, 6: right_shoulder, 7: left_elbow, 8: right_elbow
-            # 9: left_wrist, 10: right_wrist, 11: left_hip, 12: right_hip
-            # 13: left_knee, 14: right_knee, 15: left_ankle, 16: right_ankle
-
-            if len(keypoints) < 17:
-                return False
-
-            nose = keypoints[0]
-            left_wrist = keypoints[9]
-            right_wrist = keypoints[10]
-            left_shoulder = keypoints[5]
-            right_shoulder = keypoints[6]
-
-            # Check 1: Hands Up (both wrists above nose level)
-            hands_up = False
-            if (nose[1] > 0 and left_wrist[1] > 0 and right_wrist[1] > 0):
-                if left_wrist[1] < nose[1] and right_wrist[1] < nose[1]:
-                    hands_up = True
-                    print(f"[DISTRESS] Hands up detected!")
-
-            # Check 2: Falling detection (person is horizontal)
-            bbox_width = x2 - x1
-            bbox_height = y2 - y1
-            falling = False
-            if bbox_height > 0 and bbox_width / bbox_height > 1.5:
-                falling = True
-                print(f"[DISTRESS] Falling position detected!")
-
-            # Check 3: Arms spread wide (distress signal)
-            arms_spread = False
-            if (left_shoulder[0] > 0 and right_shoulder[0] > 0 and 
-                left_wrist[0] > 0 and right_wrist[0] > 0):
-                shoulder_width = abs(right_shoulder[0] - left_shoulder[0])
-                arm_span = abs(right_wrist[0] - left_wrist[0])
-                if shoulder_width > 0 and arm_span / shoulder_width > 1.8:
-                    arms_spread = True
-                    print(f"[DISTRESS] Arms spread wide detected!")
-
-            return hands_up or falling or arms_spread
-
+            # Run YOLOv11 inference for all objects
+            results = self.person_detector(frame, verbose=False)
+            
+            if not results or not results[0].boxes:
+                return []
+            
+            # Extract all detections
+            boxes = results[0].boxes
+            keypoints = results[0].keypoints if hasattr(results[0], 'keypoints') and results[0].keypoints is not None else None
+            
+            person_detections = []
+            harmful_objects = []
+            
+            # Process all detections
+            for i, box in enumerate(boxes):
+                class_id = int(box.cls[0])
+                confidence = float(box.conf[0])
+                class_name = self.person_detector.names[class_id]
+                
+                # Extract bounding box coordinates
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                
+                # Separate people and harmful objects
+                if class_name == 'person' and confidence > 0.3:
+                    # Get pose keypoints for this person
+                    person_keypoints = None
+                    if keypoints is not None and i < len(keypoints.data):
+                        person_keypoints = keypoints.data[i].cpu().numpy() if hasattr(keypoints.data[i], 'cpu') else keypoints.data[i]
+                    
+                    detection = {
+                        'bbox': [x1, y1, x2, y2],
+                        'confidence': confidence,
+                        'class': 'person',
+                        'keypoints': person_keypoints,
+                        'age': None,
+                        'gender': None,
+                        'has_harmful_object': False,
+                        'harmful_objects_nearby': [],
+                        'area': (x2 - x1) * (y2 - y1)  # For sorting by size
+                    }
+                    person_detections.append(detection)
+                    
+                elif class_name in self.HARMFUL_OBJECTS and confidence > 0.2:
+                    harmful_objects.append({
+                        'bbox': [x1, y1, x2, y2],
+                        'confidence': confidence,
+                        'class': class_name,
+                        'center': [(x1 + x2) // 2, (y1 + y2) // 2]
+                    })
+            
+            # Associate harmful objects with people
+            self._associate_harmful_objects(person_detections, harmful_objects)
+            
+            # Performance optimization: Analyze only top 2 largest people with DeepFace
+            person_detections.sort(key=lambda x: x['area'], reverse=True)
+            
+            for i, detection in enumerate(person_detections[:2]):  # Only top 2 largest
+                try:
+                    self._analyze_person_attributes(frame, detection)
+                except Exception as e:
+                    print(f"[WARNING] DeepFace analysis failed for person {i}: {e}")
+                    # Set defaults if DeepFace fails
+                    detection['age'] = 25
+                    detection['gender'] = 'unknown'
+            
+            return person_detections
+            
         except Exception as e:
-            print(f"[WARNING] Error in distress pose detection: {e}")
-            return False 
+            print(f"[ERROR] Frame analysis failed: {e}")
+            return []
+    
+    def _associate_harmful_objects(self, person_detections, harmful_objects):
+        """Associate harmful objects with nearby people"""
+        for person in person_detections:
+            px1, py1, px2, py2 = person['bbox']
+            person_center = [(px1 + px2) // 2, (py1 + py2) // 2]
+            
+            for obj in harmful_objects:
+                obj_center = obj['center']
+                
+                # Check if object is within person's bounding box or nearby (100 pixels)
+                distance = np.sqrt((person_center[0] - obj_center[0])**2 + 
+                                 (person_center[1] - obj_center[1])**2)
+                
+                # Object is associated if within person's bbox or within 100 pixels
+                within_bbox = (px1 <= obj_center[0] <= px2 and py1 <= obj_center[1] <= py2)
+                nearby = distance <= 100
+                
+                if within_bbox or nearby:
+                    person['has_harmful_object'] = True
+                    person['harmful_objects_nearby'].append({
+                        'type': obj['class'],
+                        'confidence': obj['confidence'],
+                        'distance': distance
+                    })
+    
+    def _analyze_person_attributes(self, frame, detection):
+        """Analyze person attributes using DeepFace (optimized for performance)"""
+        try:
+            x1, y1, x2, y2 = detection['bbox']
+            
+            # Add padding and ensure valid crop
+            padding = 10
+            h, w = frame.shape[:2]
+            x1 = max(0, x1 - padding)
+            y1 = max(0, y1 - padding)
+            x2 = min(w, x2 + padding)
+            y2 = min(h, y2 + padding)
+            
+            # Extract face region
+            person_crop = frame[y1:y2, x1:x2]
+            
+            if person_crop.size == 0:
+                raise ValueError("Invalid crop dimensions")
+            
+            # DeepFace analysis with enforce_detection=False for robustness
+            analysis = DeepFace.analyze(
+                person_crop,
+                actions=['age', 'gender'],
+                enforce_detection=False,
+                silent=True
+            )
+            
+            # Handle both single and multiple face results
+            if isinstance(analysis, list):
+                analysis = analysis[0]
+            
+            detection['age'] = analysis.get('age', 25)
+            detection['gender'] = analysis.get('dominant_gender', 'unknown').lower()
+            
+        except Exception as e:
+            # Fallback values if analysis fails
+            detection['age'] = 25
+            detection['gender'] = 'unknown'
+    
+    def draw_detections(self, frame, detections):
+        """Draw all detections with enhanced visualization"""
+        annotated_frame = frame.copy()
+        
+        for detection in detections:
+            x1, y1, x2, y2 = detection['bbox']
+            
+            # Color coding based on threat level
+            color = (0, 255, 0)  # Green for normal
+            if detection['has_harmful_object']:
+                color = (0, 0, 255)  # Red for armed person
+            elif detection['gender'] == 'Woman':
+                color = (0, 255, 255)  # Yellow for women (higher vulnerability)
+            
+            # Draw bounding box
+            cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 2)
+            
+            # Draw pose keypoints if available
+            if detection['keypoints'] is not None:
+                self._draw_pose(annotated_frame, detection['keypoints'])
+            
+            # Draw labels
+            label = f"Person {detection['confidence']:.2f}"
+            if detection['age'] and detection['gender']:
+                label += f" | {detection['gender']}, {detection['age']}"
+            
+            if detection['has_harmful_object']:
+                label += " | ⚠️ ARMED"
+            
+            # Draw label background
+            (label_width, label_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            cv2.rectangle(annotated_frame, (x1, y1 - label_height - 10), 
+                         (x1 + label_width, y1), color, -1)
+            
+            # Draw label text
+            cv2.putText(annotated_frame, label, (x1, y1 - 5),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        
+        return annotated_frame
+    
+    def _draw_pose(self, frame, keypoints):
+        """Draw pose keypoints and connections"""
+        if keypoints is None or len(keypoints) == 0:
+            return
+        
+        # COCO pose connections (YOLOv11 uses COCO format)
+        connections = [
+            (5, 6), (5, 7), (7, 9), (6, 8), (8, 10),  # Arms
+            (11, 12), (11, 13), (13, 15), (12, 14), (14, 16),  # Legs
+            (5, 11), (6, 12)  # Torso
+        ]
+        
+        # Draw keypoints
+        for i, (x, y, conf) in enumerate(keypoints):
+            if conf > 0.5:  # Only draw visible keypoints
+                cv2.circle(frame, (int(x), int(y)), 3, (0, 255, 0), -1)
+        
+        # Draw connections
+        for connection in connections:
+            pt1, pt2 = connection
+            if pt1 < len(keypoints) and pt2 < len(keypoints):
+                x1, y1, conf1 = keypoints[pt1]
+                x2, y2, conf2 = keypoints[pt2]
+                
+                if conf1 > 0.5 and conf2 > 0.5:
+                    cv2.line(frame, (int(x1), int(y1)), (int(x2), int(y2)), (255, 0, 0), 2) 
