@@ -17,6 +17,9 @@ import time
 import threading
 from datetime import datetime
 
+# Import core components
+from src.core.camera_processor import CameraProcessor
+
 class DesktopSurveillanceApp:
     def __init__(self, root):
         self.root = root
@@ -253,33 +256,42 @@ class DesktopSurveillanceApp:
         """Start webcam capture with full AI analysis"""
         def webcam_worker():
             # Initialize camera processor for full AI capabilities
-            from src.core.camera_processor import CameraProcessor
-            camera_proc = CameraProcessor(source=None)  # None = webcam mode
-            
+            processor = CameraProcessor()
             cap = cv2.VideoCapture(0)
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            cap.set(cv2.CAP_PROP_FPS, 30)
+            
+            if not cap.isOpened():
+                self.add_log("❌ Failed to open webcam")
+                return
+            
+            self.add_log("📹 Webcam analysis started")
+            frame_skip_counter = 0
             
             while self.is_processing:
                 ret, frame = cap.read()
-                if ret and camera_proc:
-                    # Use full camera processor with complete AI analysis
-                    processed_frame, risk_score = camera_proc.process_frame_from_numpy(frame)
-                    
-                    # Get detailed detection info
-                    detections = camera_proc.last_detections if hasattr(camera_proc, 'last_detections') else []
-                    
-                    # Update display with full processed frame
-                    self.display_frame(processed_frame)
-                    self.update_stats(risk_score, detections)
-                    
-                    # Log detailed detection info
-                    if detections:
-                        self.log_detections(detections, risk_score)
+                if not ret:
+                    break
                 
-                time.sleep(0.033)  # ~30 FPS
+                # Process every 2nd frame to reduce CPU load and flickering
+                frame_skip_counter += 1
+                if frame_skip_counter % 2 != 0:
+                    continue
+                
+                # Process frame with AI
+                analyzed_frame, detections, risk_score = processor.process_frame(frame)
+                
+                # Update display and stats
+                self.display_frame(analyzed_frame)
+                self.update_stats(risk_score, detections)
+                self.log_detections(detections, risk_score)
+                
+                # Add small delay to prevent excessive CPU usage and reduce flicker
+                time.sleep(0.03)  # ~30 FPS maximum
             
             cap.release()
+            self.add_log("📹 Webcam capture stopped")
         
         self.video_thread = threading.Thread(target=webcam_worker, daemon=True)
         self.video_thread.start()
@@ -288,31 +300,40 @@ class DesktopSurveillanceApp:
         """Start video file processing with full AI analysis"""
         def video_worker():
             # Initialize camera processor for video file
-            from src.core.camera_processor import CameraProcessor
-            camera_proc = CameraProcessor(source=video_path)
+            processor = CameraProcessor()
+            cap = cv2.VideoCapture(video_path)
+            
+            if not cap.isOpened():
+                self.add_log(f"❌ Failed to open video: {video_path}")
+                return
+            
+            self.add_log(f"🎬 Video processing started: {video_path}")
+            frame_skip_counter = 0
             
             while self.is_processing:
-                # Get processed frame from camera processor
-                frame_bytes, risk_score = camera_proc.get_frame_for_video_file()
+                ret, frame = cap.read()
+                if not ret:
+                    self.add_log("🎬 Video finished")
+                    break
                 
-                if frame_bytes:
-                    # Convert bytes back to frame for display
-                    import numpy as np
-                    nparr = np.frombuffer(frame_bytes, np.uint8)
-                    processed_frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                    
-                    # Get detection details
-                    detections = camera_proc.last_detections if hasattr(camera_proc, 'last_detections') else []
-                    
-                    # Update display
-                    self.display_frame(processed_frame)
-                    self.update_stats(risk_score, detections)
-                    
-                    # Log detailed detection info
-                    if detections:
-                        self.log_detections(detections, risk_score)
+                # Process every 3rd frame for video files to reduce processing load
+                frame_skip_counter += 1
+                if frame_skip_counter % 3 != 0:
+                    continue
                 
-                time.sleep(0.033)  # ~30 FPS
+                # Process frame with AI
+                analyzed_frame, detections, risk_score = processor.process_frame(frame)
+                
+                # Update display and stats
+                self.display_frame(analyzed_frame)
+                self.update_stats(risk_score, detections)
+                self.log_detections(detections, risk_score)
+                
+                # Add delay to control playback speed and reduce flicker
+                time.sleep(0.05)  # ~20 FPS for video files
+            
+            cap.release()
+            self.add_log("🎬 Video processing stopped")
         
         self.video_thread = threading.Thread(target=video_worker, daemon=True)
         self.video_thread.start()
@@ -360,7 +381,7 @@ class DesktopSurveillanceApp:
             print(f"[ERROR] Detection logging failed: {e}")
     
     def display_frame(self, frame):
-        """Display frame in GUI"""
+        """Display frame in GUI with anti-flicker optimization"""
         try:
             # Make video much larger - resize to fit the available space better
             display_frame = cv2.resize(frame, (800, 600))  # Much bigger size
@@ -368,16 +389,24 @@ class DesktopSurveillanceApp:
             pil_image = Image.fromarray(rgb_frame)
             photo = ImageTk.PhotoImage(pil_image)
             
-            # Update display
-            self.root.after(0, self._update_video_display, photo)
+            # Store photo reference to prevent garbage collection
+            if hasattr(self, '_current_photo'):
+                del self._current_photo
+            self._current_photo = photo
+            
+            # Update display with minimal delay to prevent flickering
+            self.root.after_idle(self._update_video_display, photo)
             
         except Exception as e:
             print(f"Display error: {e}")
     
     def _update_video_display(self, photo):
-        """Update video display"""
-        self.video_label.config(image=photo, text="")
-        self.video_label.image = photo
+        """Update video display with flicker prevention"""
+        try:
+            self.video_label.config(image=photo, text="")
+            self.video_label.image = photo
+        except Exception as e:
+            print(f"Video display update error: {e}")
     
     def update_stats(self, risk_score, detections):
         """Update statistics with detailed detection info"""
@@ -560,16 +589,50 @@ class DesktopSurveillanceApp:
         self.add_log("✅ WatchHer System Initialized")
         self.add_log("🔄 Loading AI components...")
 
+    def cleanup(self):
+        """Cleanup resources before closing"""
+        try:
+            self.is_processing = False
+            
+            # Wait for video thread to finish
+            if self.video_thread and self.video_thread.is_alive():
+                self.video_thread.join(timeout=2.0)
+            
+            # Clear photo references
+            if hasattr(self, '_current_photo'):
+                del self._current_photo
+            
+            self.add_log("🧹 Cleanup completed")
+        except Exception as e:
+            print(f"Cleanup error: {e}")
+
+    def on_closing(self):
+        """Handle window closing"""
+        self.cleanup()
+        self.root.destroy()
+
 def main():
-    """Main function"""
-    print("🚀 Starting Desktop Surveillance App...")
+    """Main function with proper error handling"""
+    print("🚀 Starting WatchHer Desktop Surveillance...")
     
-    root = tk.Tk()
-    app = DesktopSurveillanceApp(root)
-    
-    print("✅ Window created, starting GUI...")
-    root.mainloop()
-    print("👋 Desktop app closed")
+    try:
+        root = tk.Tk()
+        app = DesktopSurveillanceApp(root)
+        
+        # Handle window closing properly
+        root.protocol("WM_DELETE_WINDOW", app.on_closing)
+        
+        print("[INFO] Desktop window created and shown!")
+        print("✅ Window created, starting GUI...")
+        
+        # Start the application
+        root.mainloop()
+        
+    except Exception as e:
+        print(f"❌ Application error: {e}")
+        messagebox.showerror("Application Error", f"Failed to start application: {e}")
+    finally:
+        print("👋 Desktop app closed")
 
 if __name__ == "__main__":
-    main() 
+    main()

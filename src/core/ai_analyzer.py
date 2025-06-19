@@ -556,14 +556,24 @@ class AIAnalyzer:
         men_count = len([d for d in detections if d.get('gender') == 'man'])
         unknown_count = total_people - women_count - men_count
         
-        # **WatchHer Header with Safety Status**
-        cv2.putText(frame, "WatchHer - Women's Safety Monitor", (10, 30), 
+        # Get frame dimensions for positioning
+        frame_height, frame_width = frame.shape[:2]
+        
+        # **WatchHer Header positioned at BOTTOM of frame to avoid interference**
+        header_y = frame_height - 80
+        cv2.putText(frame, "WatchHer - Women's Safety Monitor", (10, header_y), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
         
-        # Population summary with women's safety focus
+        # Population summary positioned just above header
         summary_text = f"People: {total_people} | Women: {women_count} | Men: {men_count}"
-        cv2.putText(frame, summary_text, (10, 60), 
+        summary_y = frame_height - 50
+        cv2.putText(frame, summary_text, (10, summary_y), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 2)
+        
+        # Optional: Add a semi-transparent background for better text visibility
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (5, frame_height - 90), (frame_width - 5, frame_height - 5), (0, 0, 0), -1)
+        cv2.addWeighted(overlay, 0.3, frame, 0.7, 0, frame)
         
         # Draw people with WatchHer color coding
         for detection in detections:
