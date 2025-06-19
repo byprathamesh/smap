@@ -11,14 +11,18 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 import cv2
 import numpy as np
 import time
+import warnings
+import logging
 from datetime import datetime
 
 try:
     from ultralytics import YOLO
+    import torch
     YOLO_AVAILABLE = True
 except ImportError:
     print("[WARNING] YOLO not available. Install with: pip install ultralytics")
     YOLO_AVAILABLE = False
+    torch = None
 
 # WatchHer face detection
 try:
@@ -81,7 +85,7 @@ class AIAnalyzer:
                 self.face_detector = None
             
             # Test GPU availability
-            if torch.cuda.is_available():
+            if torch and torch.cuda.is_available():
                 print(f"[INFO] ✅ CUDA detected: {torch.cuda.get_device_name()}")
                 self.person_detector.to('cuda')
                 self.object_detector.to('cuda')
