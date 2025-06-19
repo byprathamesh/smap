@@ -1,424 +1,432 @@
 /**
- * WatchHer AI Surveillance System - JavaScript Application
- * Advanced webcam integration with real-time AI processing and dynamic map visualization
- * Strict Color Scheme: BLACK, WHITE, GREY, RED, GREEN only
+ * WatchHer AI Surveillance System - Enhanced JavaScript Application
+ * Advanced client-side webcam integration with professional UI controls
+ * Real-time AI processing and dynamic map visualization
  */
 
 class WatchHerApp {
     constructor() {
-        // Core system state
+        // Core state
         this.isProcessing = false;
-        this.webcamStream = null;
-        this.eventSource = null;
+        this.mediaStream = null;
         this.processingInterval = null;
+        this.eventSource = null;
         this.map = null;
         this.roadSegments = [];
         
-        // DOM elements
-        this.elements = {};
-        
         // Configuration
         this.config = {
-            processFrameInterval: 200,  // Process every 200ms for ~5 FPS
-            mapUpdateInterval: 1000,    // Update map every 1 second
-            webcamConstraints: {
-                video: {
-                    width: { ideal: 640 },
-                    height: { ideal: 480 },
-                    frameRate: { ideal: 30 }
-                },
-                audio: false
-            },
-            // Strict color scheme
-            colors: {
-                black: '#000000',
-                white: '#FFFFFF',
-                grey: '#808080',
-                red: '#FF0000',
-                green: '#00FF00'
+            frameProcessingInterval: 200, // 200ms = ~5 FPS
+            reconnectDelay: 3000,
+            maxReconnectAttempts: 5,
+            videoConstraints: {
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                frameRate: { ideal: 30 }
             }
         };
         
-        // Performance tracking
-        this.stats = {
+        // State tracking
+        this.reconnectAttempts = 0;
+        this.sourceType = 'webcam';
+        this.lastFrameTime = 0;
+        this.performanceStats = {
             framesProcessed: 0,
-            lastFpsUpdate: Date.now(),
-            currentFps: 0
+            totalProcessingTime: 0,
+            averageProcessingTime: 0
         };
+        
+        // DOM elements (will be set in initialize())
+        this.elements = {};
     }
     
     /**
      * Initialize the application
      */
-    async initialize() {
-        console.log('[WatchHer] Initializing AI Surveillance System...');
+    initialize() {
+        console.log('[WatchHer] Initializing application...');
         
-        try {
-            this.bindDOMElements();
-            this.setupEventListeners();
-            this.initializeMap();
-            this.updateSystemStatus('inactive', 'System Ready');
-            
-            console.log('[WatchHer] System initialized successfully');
-            
-        } catch (error) {
-            console.error('[WatchHer] Initialization failed:', error);
-            this.showError('System initialization failed: ' + error.message);
-        }
+        this.initializeElements();
+        this.setupEventListeners();
+        this.initializeMap();
+        this.checkSystemCapabilities();
+        
+        console.log('[WatchHer] Application initialized successfully');
     }
     
     /**
-     * Bind all DOM elements
+     * Cache DOM elements for performance
      */
-    bindDOMElements() {
+    initializeElements() {
         this.elements = {
-            // Buttons
-            startBtn: document.getElementById('startBtn'),
-            stopBtn: document.getElementById('stopBtn'),
+            // Source selection
+            sourceRadios: document.querySelectorAll('input[name="sourceType"]'),
+            videoPathContainer: document.getElementById('videoPathContainer'),
+            videoPathInput: document.getElementById('videoPathInput'),
+            validatePathBtn: document.getElementById('validatePathBtn'),
+            pathValidation: document.getElementById('pathValidation'),
             
-            // Status indicators
+            // Control buttons
+            startBtn: document.getElementById('startAnalysisBtn'),
+            stopBtn: document.getElementById('stopAnalysisBtn'),
+            resetMapBtn: document.getElementById('resetMapBtn'),
+            
+            // Video elements
+            liveCameraFeed: document.getElementById('liveCameraFeed'),
+            hiddenCanvas: document.getElementById('hiddenCanvas'),
+            processedDisplay: document.getElementById('processedDisplay'),
+            permissionNotice: document.getElementById('permissionNotice'),
+            
+            // Status displays
             systemStatus: document.getElementById('systemStatus'),
             statusIndicator: document.getElementById('statusIndicator'),
             statusText: document.getElementById('statusText'),
             processingStatus: document.getElementById('processingStatus'),
-            cameraStatus: document.getElementById('cameraStatus'),
+            inputSourceStatus: document.getElementById('inputSourceStatus'),
             
-            // Video elements
-            permissionNotice: document.getElementById('permissionNotice'),
-            webcamVideo: document.getElementById('webcamVideo'),
-            processedVideo: document.getElementById('processedVideo'),
-            captureCanvas: document.getElementById('captureCanvas'),
-            
-            // Stats display
+            // Performance displays
             fpsDisplay: document.getElementById('fpsDisplay'),
             peopleCount: document.getElementById('peopleCount'),
+            sourceDisplay: document.getElementById('sourceDisplay'),
             
             // Risk assessment
             riskScore: document.getElementById('riskScore'),
             threatLevel: document.getElementById('threatLevel'),
             riskProgress: document.getElementById('riskProgress'),
+            detectionCount: document.getElementById('detectionCount'),
+            processingFps: document.getElementById('processingFps'),
             
             // Footer
             timestamp: document.getElementById('timestamp'),
             performanceInfo: document.getElementById('performanceInfo')
         };
         
-        // Verify all elements exist
-        for (const [key, element] of Object.entries(this.elements)) {
-            if (!element) {
-                throw new Error(`Required DOM element not found: ${key}`);
-            }
+        // Validate all required elements exist
+        const missingElements = Object.entries(this.elements)
+            .filter(([key, element]) => !element)
+            .map(([key]) => key);
+            
+        if (missingElements.length > 0) {
+            console.error('[WatchHer] Missing DOM elements:', missingElements);
         }
     }
     
     /**
-     * Setup event listeners
+     * Set up all event listeners
      */
     setupEventListeners() {
+        // Source selection
+        this.elements.sourceRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => this.handleSourceTypeChange(e));
+        });
+        
+        // Video path validation
+        if (this.elements.validatePathBtn) {
+            this.elements.validatePathBtn.addEventListener('click', () => this.validateVideoPath());
+        }
+        
+        if (this.elements.videoPathInput) {
+            this.elements.videoPathInput.addEventListener('input', () => this.clearPathValidation());
+        }
+        
         // Control buttons
-        this.elements.startBtn.addEventListener('click', () => this.startAnalysis());
-        this.elements.stopBtn.addEventListener('click', () => this.stopAnalysis());
+        if (this.elements.startBtn) {
+            this.elements.startBtn.addEventListener('click', () => this.startAnalysis());
+        }
+        
+        if (this.elements.stopBtn) {
+            this.elements.stopBtn.addEventListener('click', () => this.stopAnalysis());
+        }
+        
+        if (this.elements.resetMapBtn) {
+            this.elements.resetMapBtn.addEventListener('click', () => this.resetMapView());
+        }
         
         // Window events
         window.addEventListener('beforeunload', () => this.cleanup());
-        
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 's') {
-                e.preventDefault();
-                if (!this.isProcessing) {
-                    this.startAnalysis();
-                } else {
-                    this.stopAnalysis();
-                }
-            }
-        });
+        window.addEventListener('focus', () => this.handleWindowFocus());
+        window.addEventListener('blur', () => this.handleWindowBlur());
     }
     
     /**
-     * Initialize Leaflet map with Delhi road network simulation
+     * Handle source type radio button changes
      */
-    initializeMap() {
+    handleSourceTypeChange(event) {
+        this.sourceType = event.target.value;
+        
+        if (this.sourceType === 'video_file') {
+            this.elements.videoPathContainer.style.display = 'block';
+            this.elements.permissionNotice.style.display = 'none';
+        } else {
+            this.elements.videoPathContainer.style.display = 'none';
+            this.elements.permissionNotice.style.display = 'block';
+            this.clearPathValidation();
+        }
+        
+        this.updateSourceDisplay();
+        console.log(`[WatchHer] Source type changed to: ${this.sourceType}`);
+    }
+    
+    /**
+     * Validate video file path
+     */
+    async validateVideoPath() {
+        const path = this.elements.videoPathInput.value.trim();
+        
+        if (!path) {
+            this.showPathValidation('Please enter a video file path', 'error');
+            return;
+        }
+        
         try {
-            // Delhi coordinates
-            const delhiCenter = [28.6139, 77.2090];
+            this.elements.validatePathBtn.textContent = 'Validating...';
+            this.elements.validatePathBtn.disabled = true;
             
-            // Initialize map with custom styling
-            this.map = L.map('riskMap', {
-                zoomControl: true,
-                attributionControl: false
-            }).setView(delhiCenter, 12);
+            const response = await fetch('/validate_video_path', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ video_path: path })
+            });
             
-            // Use dark tiles for strict color scheme
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 18,
-                className: 'map-tiles'
-            }).addTo(this.map);
+            const result = await response.json();
             
-            // Create simulated road network
-            this.createRoadNetwork();
-            
-            console.log('[WatchHer] Map initialized successfully');
+            if (result.valid) {
+                this.showPathValidation(result.message, 'success');
+            } else {
+                this.showPathValidation(result.message, 'error');
+            }
             
         } catch (error) {
-            console.error('[WatchHer] Map initialization failed:', error);
+            console.error('[WatchHer] Path validation error:', error);
+            this.showPathValidation('Failed to validate path', 'error');
+        } finally {
+            this.elements.validatePathBtn.textContent = 'Validate';
+            this.elements.validatePathBtn.disabled = false;
+        }
+    }
+    
+    /**
+     * Show path validation message
+     */
+    showPathValidation(message, type) {
+        if (this.elements.pathValidation) {
+            this.elements.pathValidation.textContent = message;
+            this.elements.pathValidation.className = `validation-message ${type}`;
+        }
+    }
+    
+    /**
+     * Clear path validation message
+     */
+    clearPathValidation() {
+        if (this.elements.pathValidation) {
+            this.elements.pathValidation.className = 'validation-message';
+            this.elements.pathValidation.textContent = '';
+        }
+    }
+    
+    /**
+     * Start analysis based on selected source
+     */
+    async startAnalysis() {
+        if (this.isProcessing) {
+            console.log('[WatchHer] Analysis already running');
+            return;
+        }
+        
+        try {
+            this.setButtonStates(true);
+            this.updateSystemStatus('starting', 'Starting analysis...');
+            
+            if (this.sourceType === 'webcam') {
+                await this.startWebcamAnalysis();
+            } else if (this.sourceType === 'video_file') {
+                await this.startVideoFileAnalysis();
+            }
+            
+        } catch (error) {
+            console.error('[WatchHer] Failed to start analysis:', error);
+            this.updateSystemStatus('error', `Failed to start: ${error.message}`);
+            this.setButtonStates(false);
+        }
+    }
+    
+    /**
+     * Start webcam analysis with getUserMedia
+     */
+    async startWebcamAnalysis() {
+        console.log('[WatchHer] Starting webcam analysis...');
+        
+        try {
+            // Request webcam access
+            this.updateSystemStatus('requesting', 'Requesting camera access...');
+            
+            this.mediaStream = await navigator.mediaDevices.getUserMedia({
+                video: this.config.videoConstraints,
+                audio: false
+            });
+            
+            console.log('[WatchHer] Camera access granted');
+            
+            // Set up video element
+            this.elements.liveCameraFeed.srcObject = this.mediaStream;
+            
+            // Wait for video to be ready
+            await new Promise((resolve, reject) => {
+                this.elements.liveCameraFeed.onloadedmetadata = resolve;
+                this.elements.liveCameraFeed.onerror = reject;
+                setTimeout(() => reject(new Error('Video load timeout')), 5000);
+            });
+            
+            // Initialize backend
+            const response = await fetch('/start_analysis', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    source_type: 'webcam'
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Backend initialization failed: ${response.status}`);
+            }
+            
+            // Start frame processing
+            this.startFrameProcessing();
+            this.startEventStream();
+            
+            this.isProcessing = true;
+            this.updateSystemStatus('active', 'Live webcam analysis active');
+            this.elements.permissionNotice.style.display = 'none';
+            
+            console.log('[WatchHer] Webcam analysis started successfully');
+            
+        } catch (error) {
+            console.error('[WatchHer] Webcam analysis failed:', error);
+            this.cleanup();
             throw error;
         }
     }
     
     /**
-     * Create simulated road network for Delhi
+     * Start video file analysis
      */
-    createRoadNetwork() {
-        // Simulated road segments with Delhi-like coordinates
-        const roadSegments = [
-            {
-                id: 'connaught-place',
-                name: 'Connaught Place',
-                coords: [[28.6315, 77.2167], [28.6289, 77.2156]],
-                riskLevel: 0
-            },
-            {
-                id: 'india-gate',
-                name: 'India Gate Area',
-                coords: [[28.6129, 77.2295], [28.6139, 77.2273]],
-                riskLevel: 0
-            },
-            {
-                id: 'karol-bagh',
-                name: 'Karol Bagh Market',
-                coords: [[28.6519, 77.1909], [28.6489, 77.1889]],
-                riskLevel: 0
-            },
-            {
-                id: 'chandni-chowk',
-                name: 'Chandni Chowk',
-                coords: [[28.6506, 77.2334], [28.6489, 77.2298]],
-                riskLevel: 0
-            },
-            {
-                id: 'lajpat-nagar',
-                name: 'Lajpat Nagar',
-                coords: [[28.5656, 77.2431], [28.5639, 77.2456]],
-                riskLevel: 0
-            }
-        ];
+    async startVideoFileAnalysis() {
+        const videoPath = this.elements.videoPathInput.value.trim();
         
-        // Create polylines for each road segment
-        this.roadSegments = roadSegments.map(segment => {
-            const polyline = L.polyline(segment.coords, {
-                color: this.config.colors.green,
-                weight: 6,
-                opacity: 0.8
-            }).addTo(this.map);
-            
-            // Add popup with area name
-            polyline.bindPopup(`
-                <div style="color: black; font-weight: bold;">
-                    ${segment.name}<br>
-                    <span style="color: green;">Risk Level: SAFE</span>
-                </div>
-            `);
-            
-            return {
-                ...segment,
-                polyline: polyline
-            };
-        });
-    }
-    
-    /**
-     * Start surveillance analysis
-     */
-    async startAnalysis() {
-        console.log('[WatchHer] Starting surveillance analysis...');
+        if (!videoPath) {
+            throw new Error('Please enter a video file path');
+        }
+        
+        console.log(`[WatchHer] Starting video file analysis: ${videoPath}`);
         
         try {
-            // Update UI state
-            this.elements.startBtn.disabled = true;
-            this.elements.startBtn.classList.add('loading');
-            this.updateSystemStatus('connecting', 'Requesting camera access...');
+            this.updateSystemStatus('starting', 'Initializing video file...');
             
-            // Request webcam access
-            await this.initializeWebcam();
-            
-            // Start backend analysis
+            // Initialize backend for video file
             const response = await fetch('/start_analysis', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    source_type: 'video_file',
+                    video_path: videoPath
+                })
             });
             
             if (!response.ok) {
-                throw new Error(`Backend start failed: ${response.statusText}`);
+                const errorData = await response.json();
+                throw new Error(errorData.message || `Server error: ${response.status}`);
             }
             
-            const result = await response.json();
-            console.log('[WatchHer] Backend analysis started:', result);
+            // Set video feed source to server stream
+            this.elements.processedDisplay.src = '/video_feed_stream';
             
-            // Start processing loop
-            this.startProcessingLoop();
+            // Start event stream for updates
+            this.startEventStream();
             
-            // Start real-time updates
-            this.startRealTimeUpdates();
-            
-            // Update UI
             this.isProcessing = true;
-            this.elements.startBtn.disabled = true;
-            this.elements.stopBtn.disabled = false;
-            this.elements.startBtn.classList.remove('loading');
-            this.updateSystemStatus('active', 'Analysis Active');
-            this.updateCameraStatus('connected');
-            this.updateProcessingStatus('active');
-            
-            console.log('[WatchHer] Surveillance analysis started successfully');
-            
-        } catch (error) {
-            console.error('[WatchHer] Failed to start analysis:', error);
-            this.showError('Failed to start analysis: ' + error.message);
-            this.resetUI();
-        }
-    }
-    
-    /**
-     * Stop surveillance analysis
-     */
-    async stopAnalysis() {
-        console.log('[WatchHer] Stopping surveillance analysis...');
-        
-        try {
-            // Stop processing
-            this.isProcessing = false;
-            if (this.processingInterval) {
-                clearInterval(this.processingInterval);
-                this.processingInterval = null;
-            }
-            
-            // Stop real-time updates
-            if (this.eventSource) {
-                this.eventSource.close();
-                this.eventSource = null;
-            }
-            
-            // Stop webcam
-            if (this.webcamStream) {
-                this.webcamStream.getTracks().forEach(track => track.stop());
-                this.webcamStream = null;
-            }
-            
-            // Stop backend analysis
-            const response = await fetch('/stop_analysis', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            
-            if (response.ok) {
-                console.log('[WatchHer] Backend analysis stopped');
-            }
-            
-            // Reset UI
-            this.resetUI();
-            this.updateSystemStatus('inactive', 'System Ready');
-            
-            console.log('[WatchHer] Surveillance analysis stopped successfully');
-            
-        } catch (error) {
-            console.error('[WatchHer] Error stopping analysis:', error);
-            this.resetUI();
-        }
-    }
-    
-    /**
-     * Initialize webcam access
-     */
-    async initializeWebcam() {
-        try {
-            console.log('[WatchHer] Requesting webcam access...');
-            
-            // Check if getUserMedia is available
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                throw new Error('Webcam access not supported by this browser');
-            }
-            
-            // Request webcam access
-            this.webcamStream = await navigator.mediaDevices.getUserMedia(this.config.webcamConstraints);
-            
-            // Attach stream to video element
-            this.elements.webcamVideo.srcObject = this.webcamStream;
-            
-            // Wait for video to be ready
-            await new Promise((resolve, reject) => {
-                this.elements.webcamVideo.onloadedmetadata = resolve;
-                this.elements.webcamVideo.onerror = reject;
-                setTimeout(reject, 5000); // 5 second timeout
-            });
-            
-            // Hide permission notice and show video
+            this.updateSystemStatus('active', `Video file analysis active: ${videoPath}`);
             this.elements.permissionNotice.style.display = 'none';
-            this.elements.processedVideo.style.display = 'block';
             
-            console.log('[WatchHer] Webcam initialized successfully');
+            console.log('[WatchHer] Video file analysis started successfully');
             
         } catch (error) {
-            console.error('[WatchHer] Webcam initialization failed:', error);
-            
-            if (error.name === 'NotAllowedError') {
-                throw new Error('Camera access denied. Please allow camera access and try again.');
-            } else if (error.name === 'NotFoundError') {
-                throw new Error('No camera found. Please connect a camera and try again.');
-            } else {
-                throw new Error('Camera initialization failed: ' + error.message);
-            }
+            console.error('[WatchHer] Video file analysis failed:', error);
+            throw error;
         }
     }
     
     /**
-     * Start processing loop for frame analysis
+     * Start frame processing loop for webcam
      */
-    startProcessingLoop() {
-        if (this.processingInterval) {
-            clearInterval(this.processingInterval);
-        }
+    startFrameProcessing() {
+        if (this.processingInterval) return;
+        
+        console.log('[WatchHer] Starting frame processing loop');
         
         this.processingInterval = setInterval(async () => {
-            if (this.isProcessing && this.webcamStream) {
+            try {
                 await this.processFrame();
+            } catch (error) {
+                console.error('[WatchHer] Frame processing error:', error);
             }
-        }, this.config.processFrameInterval);
-        
-        console.log('[WatchHer] Processing loop started');
+        }, this.config.frameProcessingInterval);
     }
     
     /**
-     * Process a single frame
+     * Process a single frame from webcam
      */
     async processFrame() {
+        if (!this.mediaStream || !this.elements.liveCameraFeed.videoWidth) {
+            return;
+        }
+        
+        const startTime = performance.now();
+        
         try {
-            // Capture frame from webcam
-            const frameData = this.captureFrame();
+            // Capture frame to canvas
+            const canvas = this.elements.hiddenCanvas;
+            const ctx = canvas.getContext('2d');
             
-            if (!frameData) return;
+            canvas.width = this.elements.liveCameraFeed.videoWidth;
+            canvas.height = this.elements.liveCameraFeed.videoHeight;
             
-            // Send frame to backend for processing
-            const response = await fetch('/process_frame', {
+            ctx.drawImage(this.elements.liveCameraFeed, 0, 0);
+            
+            // Convert to base64
+            const frameData = canvas.toDataURL('image/jpeg', 0.8);
+            
+            // Send to backend for processing
+            const response = await fetch('/process_live_frame', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ frame: frameData })
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    frame: frameData
+                })
             });
             
             if (!response.ok) {
-                console.warn('[WatchHer] Frame processing failed:', response.statusText);
-                return;
+                throw new Error(`Processing failed: ${response.status}`);
             }
             
             const result = await response.json();
             
-            // Update processed video display
-            if (result.processed_frame) {
-                this.elements.processedVideo.src = result.processed_frame;
+            if (result.status === 'success') {
+                // Update processed video display
+                this.elements.processedDisplay.src = result.processed_frame;
+                
+                // Update performance stats
+                const processingTime = performance.now() - startTime;
+                this.updatePerformanceStats(processingTime);
             }
-            
-            // Update stats
-            this.updateStats(result);
             
         } catch (error) {
             console.error('[WatchHer] Frame processing error:', error);
@@ -426,296 +434,543 @@ class WatchHerApp {
     }
     
     /**
-     * Capture frame from webcam video
+     * Start Server-Sent Events stream
      */
-    captureFrame() {
-        try {
-            const video = this.elements.webcamVideo;
-            const canvas = this.elements.captureCanvas;
-            
-            if (video.readyState !== 4) return null;
-            
-            // Set canvas dimensions to match video
-            canvas.width = video.videoWidth || 640;
-            canvas.height = video.videoHeight || 480;
-            
-            // Draw video frame to canvas
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // Convert to base64 JPEG
-            return canvas.toDataURL('image/jpeg', 0.8);
-            
-        } catch (error) {
-            console.error('[WatchHer] Frame capture failed:', error);
-            return null;
-        }
-    }
-    
-    /**
-     * Start real-time updates via Server-Sent Events
-     */
-    startRealTimeUpdates() {
+    startEventStream() {
         if (this.eventSource) {
             this.eventSource.close();
         }
         
+        console.log('[WatchHer] Starting event stream...');
+        
         this.eventSource = new EventSource('/risk_score_stream');
+        
+        this.eventSource.onopen = () => {
+            console.log('[WatchHer] Event stream connected');
+            this.reconnectAttempts = 0;
+        };
         
         this.eventSource.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                this.updateRealTimeData(data);
+                this.updateDisplays(data);
             } catch (error) {
-                console.error('[WatchHer] SSE data parsing error:', error);
+                console.error('[WatchHer] Event data parsing error:', error);
             }
         };
         
         this.eventSource.onerror = (error) => {
-            console.error('[WatchHer] SSE connection error:', error);
+            console.error('[WatchHer] Event stream error:', error);
+            this.handleEventStreamError();
         };
-        
-        console.log('[WatchHer] Real-time updates started');
     }
     
     /**
-     * Update UI with real-time data
+     * Handle event stream errors with reconnection
      */
-    updateRealTimeData(data) {
-        // Update risk score
-        this.updateRiskDisplay(data.risk_score);
+    handleEventStreamError() {
+        if (this.reconnectAttempts < this.config.maxReconnectAttempts) {
+            this.reconnectAttempts++;
+            console.log(`[WatchHer] Reconnecting event stream (attempt ${this.reconnectAttempts})...`);
+            
+            setTimeout(() => {
+                if (this.isProcessing) {
+                    this.startEventStream();
+                }
+            }, this.config.reconnectDelay);
+        } else {
+            console.error('[WatchHer] Max reconnection attempts reached');
+            this.updateSystemStatus('error', 'Connection lost - please restart');
+        }
+    }
+    
+    /**
+     * Update all display elements with new data
+     */
+    updateDisplays(data) {
+        // Risk score and threat level
+        if (this.elements.riskScore) {
+            this.elements.riskScore.textContent = data.risk_score.toFixed(1);
+            this.updateRiskScoreClass(data.risk_score);
+        }
         
-        // Update FPS
-        this.elements.fpsDisplay.textContent = data.fps.toFixed(1);
+        if (this.elements.threatLevel) {
+            this.elements.threatLevel.textContent = data.threat_level;
+            this.elements.threatLevel.className = `threat-value threat-${data.threat_level.toLowerCase()}`;
+        }
         
-        // Update people count
-        this.elements.peopleCount.textContent = data.detection_count;
+        // Progress bar
+        if (this.elements.riskProgress) {
+            const progressWidth = Math.min(data.risk_score, 100);
+            this.elements.riskProgress.style.width = `${progressWidth}%`;
+            this.updateProgressClass(data.risk_score);
+        }
         
-        // Update timestamp
-        this.elements.timestamp.textContent = `Timestamp: ${new Date(data.timestamp).toLocaleTimeString()}`;
+        // Performance stats
+        if (this.elements.fpsDisplay) {
+            this.elements.fpsDisplay.textContent = data.fps.toFixed(1);
+        }
+        
+        if (this.elements.peopleCount) {
+            this.elements.peopleCount.textContent = data.detection_count;
+        }
+        
+        if (this.elements.detectionCount) {
+            this.elements.detectionCount.textContent = data.detection_count;
+        }
+        
+        if (this.elements.processingFps) {
+            this.elements.processingFps.textContent = data.fps.toFixed(1);
+        }
         
         // Update map colors
-        if (data.map_color) {
-            this.updateMapColors(data.risk_score);
-        }
+        this.updateMapColors(data.risk_score);
         
-        // Update performance info
-        this.elements.performanceInfo.textContent = `Threat Level: ${data.threat_level} | Processing: ${data.status}`;
+        // Update timestamp
+        if (this.elements.timestamp) {
+            const timestamp = new Date(data.timestamp).toLocaleTimeString();
+            this.elements.timestamp.textContent = `Updated: ${timestamp}`;
+        }
     }
     
     /**
-     * Update risk score display
+     * Update risk score styling based on value
      */
-    updateRiskDisplay(riskScore) {
-        // Update score value
-        this.elements.riskScore.textContent = riskScore.toFixed(1);
+    updateRiskScoreClass(score) {
+        if (!this.elements.riskScore) return;
         
-        // Update threat level and colors
-        let threatLevel = 'SAFE';
-        let riskClass = 'risk-safe';
-        let threatClass = 'threat-safe';
-        let progressClass = 'progress-safe';
+        this.elements.riskScore.className = 'risk-score';
         
-        if (riskScore >= 80) {
-            threatLevel = 'CRITICAL';
-            riskClass = 'risk-high';
-            threatClass = 'threat-critical';
-            progressClass = 'progress-critical';
-        } else if (riskScore >= 60) {
-            threatLevel = 'HIGH';
-            riskClass = 'risk-high';
-            threatClass = 'threat-high';
-            progressClass = 'progress-high';
-        } else if (riskScore >= 30) {
-            threatLevel = 'MODERATE';
-            riskClass = 'risk-moderate';
-            threatClass = 'threat-moderate';
-            progressClass = 'progress-moderate';
-        } else if (riskScore >= 15) {
-            threatLevel = 'LOW';
-            riskClass = 'risk-low';
-            threatClass = 'threat-low';
-            progressClass = 'progress-low';
+        if (score >= 80) {
+            this.elements.riskScore.classList.add('risk-critical');
+        } else if (score >= 60) {
+            this.elements.riskScore.classList.add('risk-high');
+        } else if (score >= 30) {
+            this.elements.riskScore.classList.add('risk-moderate');
+        } else if (score >= 10) {
+            this.elements.riskScore.classList.add('risk-low');
         }
-        
-        // Apply classes
-        this.elements.riskScore.className = `risk-score ${riskClass}`;
-        this.elements.threatLevel.className = `threat-value ${threatClass}`;
-        this.elements.threatLevel.textContent = threatLevel;
-        
-        // Update progress bar
-        this.elements.riskProgress.className = `progress-fill ${progressClass}`;
-        this.elements.riskProgress.style.width = `${Math.min(riskScore, 100)}%`;
     }
     
     /**
-     * Update map colors based on risk score
+     * Update progress bar styling
      */
-    updateMapColors(riskScore) {
-        const color = this.getRiskColor(riskScore);
+    updateProgressClass(score) {
+        if (!this.elements.riskProgress) return;
         
-        this.roadSegments.forEach(segment => {
-            segment.polyline.setStyle({ color: color });
+        this.elements.riskProgress.className = 'progress-fill';
+        
+        if (score >= 80) {
+            this.elements.riskProgress.classList.add('progress-critical');
+        } else if (score >= 60) {
+            this.elements.riskProgress.classList.add('progress-high');
+        } else if (score >= 30) {
+            this.elements.riskProgress.classList.add('progress-moderate');
+        } else if (score >= 10) {
+            this.elements.riskProgress.classList.add('progress-low');
+        } else {
+            this.elements.riskProgress.classList.add('progress-safe');
+        }
+    }
+    
+    /**
+     * Stop analysis and cleanup
+     */
+    async stopAnalysis() {
+        console.log('[WatchHer] Stopping analysis...');
+        
+        try {
+            this.updateSystemStatus('stopping', 'Stopping analysis...');
             
-            // Update popup content
-            const threatLevel = this.getThreatLevel(riskScore);
-            segment.polyline.setPopupContent(`
-                <div style="color: black; font-weight: bold;">
-                    ${segment.name}<br>
-                    <span style="color: ${color};">Risk Level: ${threatLevel}</span>
-                </div>
-            `);
-        });
-    }
-    
-    /**
-     * Get risk color based on score
-     */
-    getRiskColor(riskScore) {
-        if (riskScore >= 70) return this.config.colors.red;
-        if (riskScore >= 40) return this.config.colors.grey;
-        if (riskScore >= 15) return this.config.colors.white;
-        return this.config.colors.green;
-    }
-    
-    /**
-     * Get threat level text
-     */
-    getThreatLevel(riskScore) {
-        if (riskScore >= 80) return 'CRITICAL';
-        if (riskScore >= 60) return 'HIGH';
-        if (riskScore >= 30) return 'MODERATE';
-        if (riskScore >= 15) return 'LOW';
-        return 'SAFE';
-    }
-    
-    /**
-     * Update stats display
-     */
-    updateStats(result) {
-        this.stats.framesProcessed++;
-        
-        // Calculate FPS
-        const now = Date.now();
-        if (now - this.stats.lastFpsUpdate >= 1000) {
-            this.stats.currentFps = this.stats.framesProcessed / ((now - this.stats.lastFpsUpdate) / 1000);
-            this.stats.lastFpsUpdate = now;
-            this.stats.framesProcessed = 0;
+            // Stop backend processing
+            await fetch('/stop_analysis', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            // Cleanup resources
+            this.cleanup();
+            
+            this.updateSystemStatus('inactive', 'Analysis stopped');
+            this.setButtonStates(false);
+            
+            // Reset displays
+            this.resetDisplays();
+            
+            console.log('[WatchHer] Analysis stopped successfully');
+            
+        } catch (error) {
+            console.error('[WatchHer] Error stopping analysis:', error);
+            this.updateSystemStatus('error', 'Error stopping analysis');
         }
     }
     
     /**
-     * Update system status
+     * Cleanup all resources
      */
-    updateSystemStatus(status, message) {
-        this.elements.statusText.textContent = message;
+    cleanup() {
+        this.isProcessing = false;
         
-        // Update status indicator
-        this.elements.statusIndicator.className = 'status-indicator';
-        
-        switch (status) {
-            case 'active':
-                this.elements.statusIndicator.classList.add('active');
-                break;
-            case 'error':
-                this.elements.statusIndicator.classList.add('error');
-                break;
-            default:
-                // inactive - keep default grey
-                break;
+        // Stop frame processing
+        if (this.processingInterval) {
+            clearInterval(this.processingInterval);
+            this.processingInterval = null;
         }
+        
+        // Close event stream
+        if (this.eventSource) {
+            this.eventSource.close();
+            this.eventSource = null;
+        }
+        
+        // Stop media stream
+        if (this.mediaStream) {
+            this.mediaStream.getTracks().forEach(track => track.stop());
+            this.mediaStream = null;
+        }
+        
+        // Reset video elements
+        if (this.elements.liveCameraFeed) {
+            this.elements.liveCameraFeed.srcObject = null;
+        }
+        
+        console.log('[WatchHer] Resources cleaned up');
     }
     
     /**
-     * Update camera status
+     * Reset display elements to initial state
      */
-    updateCameraStatus(status) {
-        const element = this.elements.cameraStatus;
-        
-        switch (status) {
-            case 'connected':
-                element.textContent = 'Connected';
-                element.className = 'status-active';
-                break;
-            case 'error':
-                element.textContent = 'Error';
-                element.className = 'status-error';
-                break;
-            default:
-                element.textContent = 'Disconnected';
-                element.className = 'status-inactive';
-                break;
+    resetDisplays() {
+        if (this.elements.riskScore) {
+            this.elements.riskScore.textContent = '0.0';
+            this.elements.riskScore.className = 'risk-score';
         }
-    }
-    
-    /**
-     * Update processing status
-     */
-    updateProcessingStatus(status) {
-        const element = this.elements.processingStatus;
         
-        switch (status) {
-            case 'active':
-                element.textContent = 'Active';
-                element.className = 'status-active';
-                break;
-            case 'error':
-                element.textContent = 'Error';
-                element.className = 'status-error';
-                break;
-            default:
-                element.textContent = 'Inactive';
-                element.className = 'status-inactive';
-                break;
+        if (this.elements.threatLevel) {
+            this.elements.threatLevel.textContent = 'SAFE';
+            this.elements.threatLevel.className = 'threat-value threat-safe';
         }
-    }
-    
-    /**
-     * Reset UI to initial state
-     */
-    resetUI() {
-        this.elements.startBtn.disabled = false;
-        this.elements.stopBtn.disabled = true;
-        this.elements.startBtn.classList.remove('loading');
         
-        this.updateCameraStatus('disconnected');
-        this.updateProcessingStatus('inactive');
+        if (this.elements.riskProgress) {
+            this.elements.riskProgress.style.width = '0%';
+            this.elements.riskProgress.className = 'progress-fill progress-safe';
+        }
         
-        // Reset video display
-        this.elements.permissionNotice.style.display = 'block';
-        this.elements.processedVideo.style.display = 'none';
-        this.elements.processedVideo.src = '';
+        if (this.elements.fpsDisplay) {
+            this.elements.fpsDisplay.textContent = '0.0';
+        }
         
-        // Reset stats
-        this.elements.fpsDisplay.textContent = '0.0';
-        this.elements.peopleCount.textContent = '0';
+        if (this.elements.peopleCount) {
+            this.elements.peopleCount.textContent = '0';
+        }
         
-        // Reset risk display
-        this.updateRiskDisplay(0);
+        if (this.elements.detectionCount) {
+            this.elements.detectionCount.textContent = '0';
+        }
+        
+        if (this.elements.processingFps) {
+            this.elements.processingFps.textContent = '0.0';
+        }
+        
+        if (this.elements.processedDisplay) {
+            this.elements.processedDisplay.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='480'%3E%3Crect width='100%25' height='100%25' fill='%23000'/%3E%3Ctext x='50%25' y='50%25' fill='%23666' text-anchor='middle' dy='.3em' font-family='Arial' font-size='18'%3ENo Video Feed%3C/text%3E%3C/svg%3E";
+        }
+        
+        if (this.elements.timestamp) {
+            this.elements.timestamp.textContent = 'Ready to Start';
+        }
+        
+        if (this.elements.permissionNotice && this.sourceType === 'webcam') {
+            this.elements.permissionNotice.style.display = 'block';
+        }
         
         // Reset map colors
         this.updateMapColors(0);
     }
     
     /**
-     * Show error message
+     * Update performance statistics
      */
-    showError(message) {
-        console.error('[WatchHer] Error:', message);
-        alert('WatchHer Error: ' + message);
+    updatePerformanceStats(processingTime) {
+        this.performanceStats.framesProcessed++;
+        this.performanceStats.totalProcessingTime += processingTime;
+        this.performanceStats.averageProcessingTime = 
+            this.performanceStats.totalProcessingTime / this.performanceStats.framesProcessed;
+        
+        if (this.elements.performanceInfo) {
+            const avgTime = this.performanceStats.averageProcessingTime.toFixed(1);
+            const fps = (1000 / this.config.frameProcessingInterval).toFixed(1);
+            this.elements.performanceInfo.textContent = 
+                `Processing: ${avgTime}ms avg | Target: ${fps} FPS | Frames: ${this.performanceStats.framesProcessed}`;
+        }
     }
     
     /**
-     * Cleanup resources
+     * Set button states based on processing status
      */
-    cleanup() {
-        console.log('[WatchHer] Cleaning up resources...');
-        
-        if (this.isProcessing) {
-            this.stopAnalysis();
+    setButtonStates(processing) {
+        if (this.elements.startBtn) {
+            this.elements.startBtn.disabled = processing;
         }
+        
+        if (this.elements.stopBtn) {
+            this.elements.stopBtn.disabled = !processing;
+        }
+        
+        // Disable source selection during processing
+        this.elements.sourceRadios.forEach(radio => {
+            radio.disabled = processing;
+        });
+        
+        if (this.elements.videoPathInput) {
+            this.elements.videoPathInput.disabled = processing;
+        }
+        
+        if (this.elements.validatePathBtn) {
+            this.elements.validatePathBtn.disabled = processing;
+        }
+    }
+    
+    /**
+     * Update system status display
+     */
+    updateSystemStatus(status, message) {
+        if (this.elements.statusText) {
+            this.elements.statusText.textContent = message;
+        }
+        
+        if (this.elements.statusIndicator) {
+            this.elements.statusIndicator.className = 'status-indicator';
+            
+            switch (status) {
+                case 'active':
+                    this.elements.statusIndicator.classList.add('active');
+                    break;
+                case 'error':
+                    this.elements.statusIndicator.classList.add('error');
+                    break;
+            }
+        }
+        
+        if (this.elements.processingStatus) {
+            this.elements.processingStatus.textContent = 
+                status === 'active' ? 'Active' : 
+                status === 'error' ? 'Error' : 'Inactive';
+            this.elements.processingStatus.className = `status-${status === 'active' ? 'active' : 'inactive'}`;
+        }
+        
+        this.updateSourceDisplay();
+    }
+    
+    /**
+     * Update source display
+     */
+    updateSourceDisplay() {
+        if (this.elements.inputSourceStatus) {
+            this.elements.inputSourceStatus.textContent = 
+                this.isProcessing ? this.sourceType : 'None';
+            this.elements.inputSourceStatus.className = 
+                this.isProcessing ? 'status-active' : 'status-inactive';
+        }
+        
+        if (this.elements.sourceDisplay) {
+            this.elements.sourceDisplay.textContent = 
+                this.isProcessing ? this.sourceType : 'None';
+        }
+    }
+    
+    /**
+     * Initialize Leaflet map with Delhi road network
+     */
+    initializeMap() {
+        console.log('[WatchHer] Initializing map...');
+        
+        try {
+            // Initialize map centered on Delhi
+            this.map = L.map('riskMap').setView([28.6139, 77.2090], 11);
+            
+            // Add tile layer with dark theme
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 18
+            }).addTo(this.map);
+            
+            // Define Delhi road segments with real coordinates
+            const roadSegments = [
+                {
+                    name: "Connaught Place Area",
+                    coordinates: [
+                        [28.6328, 77.2197],
+                        [28.6315, 77.2190],
+                        [28.6300, 77.2180],
+                        [28.6290, 77.2170]
+                    ],
+                    center: [28.6315, 77.2185]
+                },
+                {
+                    name: "India Gate Area",
+                    coordinates: [
+                        [28.6129, 77.2295],
+                        [28.6140, 77.2280],
+                        [28.6150, 77.2265],
+                        [28.6160, 77.2250]
+                    ],
+                    center: [28.6145, 77.2270]
+                },
+                {
+                    name: "Karol Bagh Market",
+                    coordinates: [
+                        [28.6507, 77.1901],
+                        [28.6520, 77.1920],
+                        [28.6535, 77.1940],
+                        [28.6550, 77.1960]
+                    ],
+                    center: [28.6530, 77.1930]
+                },
+                {
+                    name: "Chandni Chowk",
+                    coordinates: [
+                        [28.6506, 77.2303],
+                        [28.6520, 77.2290],
+                        [28.6535, 77.2275],
+                        [28.6550, 77.2260]
+                    ],
+                    center: [28.6530, 77.2280]
+                },
+                {
+                    name: "Lajpat Nagar Market",
+                    coordinates: [
+                        [28.5659, 77.2436],
+                        [28.5670, 77.2450],
+                        [28.5680, 77.2465],
+                        [28.5690, 77.2480]
+                    ],
+                    center: [28.5675, 77.2460]
+                }
+            ];
+            
+            // Create road segments on map
+            this.roadSegments = roadSegments.map(segment => {
+                const polyline = L.polyline(segment.coordinates, {
+                    color: '#00D4AA',
+                    weight: 6,
+                    opacity: 0.8
+                }).addTo(this.map);
+                
+                // Add popup with area information
+                polyline.bindPopup(`
+                    <div style="text-align: center;">
+                        <h4 style="margin: 0 0 8px 0; color: #007BFF;">${segment.name}</h4>
+                        <p style="margin: 0; color: #E8E8E8;">Risk Level: <span id="popup-risk-${segment.name.replace(/\s+/g, '-')}">SAFE</span></p>
+                    </div>
+                `);
+                
+                return {
+                    ...segment,
+                    polyline: polyline
+                };
+            });
+            
+            console.log('[WatchHer] Map initialized with', this.roadSegments.length, 'road segments');
+            
+        } catch (error) {
+            console.error('[WatchHer] Map initialization error:', error);
+        }
+    }
+    
+    /**
+     * Update map colors based on risk score
+     */
+    updateMapColors(riskScore) {
+        if (!this.map || !this.roadSegments) return;
+        
+        let color = '#00D4AA'; // Safe (green)
+        let riskLevel = 'SAFE';
+        
+        if (riskScore >= 70) {
+            color = '#FF006E'; // High (red)
+            riskLevel = 'HIGH RISK';
+        } else if (riskScore >= 40) {
+            color = '#FF8500'; // Moderate (orange)
+            riskLevel = 'MODERATE';
+        } else if (riskScore >= 15) {
+            color = '#FFD60A'; // Low (yellow)
+            riskLevel = 'LOW RISK';
+        }
+        
+        // Update all road segments
+        this.roadSegments.forEach(segment => {
+            segment.polyline.setStyle({ color: color });
+            
+            // Update popup content if open
+            const popupId = `popup-risk-${segment.name.replace(/\s+/g, '-')}`;
+            const popupElement = document.getElementById(popupId);
+            if (popupElement) {
+                popupElement.textContent = riskLevel;
+                popupElement.style.color = color;
+            }
+        });
+    }
+    
+    /**
+     * Reset map view to default
+     */
+    resetMapView() {
+        if (this.map) {
+            this.map.setView([28.6139, 77.2090], 11);
+            console.log('[WatchHer] Map view reset to Delhi center');
+        }
+    }
+    
+    /**
+     * Check system capabilities
+     */
+    async checkSystemCapabilities() {
+        try {
+            // Check camera availability
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            
+            console.log(`[WatchHer] Found ${videoDevices.length} video devices`);
+            
+            if (videoDevices.length === 0) {
+                console.warn('[WatchHer] No video devices found');
+            }
+            
+            // Check backend capabilities
+            const response = await fetch('/api/system_info');
+            if (response.ok) {
+                const systemInfo = await response.json();
+                console.log('[WatchHer] System capabilities:', systemInfo);
+            }
+            
+        } catch (error) {
+            console.error('[WatchHer] Capability check error:', error);
+        }
+    }
+    
+    /**
+     * Handle window focus events
+     */
+    handleWindowFocus() {
+        if (this.isProcessing && !this.eventSource) {
+            console.log('[WatchHer] Window focused, reconnecting event stream');
+            this.startEventStream();
+        }
+    }
+    
+    /**
+     * Handle window blur events
+     */
+    handleWindowBlur() {
+        // Optionally reduce processing frequency when window is not focused
+        console.log('[WatchHer] Window blurred');
     }
 }
 
-// Export for use
-window.WatchHerApp = WatchHerApp; 
+// Initialize application when DOM is loaded
+if (typeof window !== 'undefined') {
+    window.WatchHerApp = WatchHerApp;
+} 

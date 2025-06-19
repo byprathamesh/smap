@@ -1,38 +1,29 @@
 #!/usr/bin/env python3
 """
 WatchHer Camera Processor - Advanced Version
-Webcam-only processing with comprehensive floating-point risk scoring
-Optimized for real-time performance
+Supports both client-side webcam frames and server-side video file processing
+Optimized for real-time performance with comprehensive risk scoring
 """
 
 import cv2
-import threading
+import numpy as np
 import time
 import math
-import os
-import numpy as np
+import threading
 from datetime import datetime
 from ai_analyzer import AIAnalyzer
-from alert_system import trigger_alert, is_night_time
-import config
-
-"""
-PERFORMANCE NOTE:
-The YOLOv8-Pose and DeepFace models are computationally intensive. When running on CPU-only systems:
-- FPS will typically be very low (0.1-2 FPS)
-- Display windows may show "Not Responding" during processing
-- This is EXPECTED behavior for CPU-only execution
-
-For real-time performance (>10 FPS), a CUDA-enabled NVIDIA GPU is REQUIRED.
-The models will automatically use GPU if available, otherwise fall back to CPU.
-"""
 
 class CameraProcessor:
     """Advanced camera processor with sophisticated risk assessment"""
     
-    def __init__(self, source_index=0):
-        """Initialize for webcam-only input"""
-        self.source_index = source_index
+    def __init__(self, source=None):
+        """
+        Initialize camera processor
+        
+        Args:
+            source: None for live webcam (frames from client), str for video file path
+        """
+        self.source = source
         self.cap = None
         self.analyzer = AIAnalyzer()
         self.is_running = False
@@ -44,6 +35,10 @@ class CameraProcessor:
         self.fps_counter = 0
         self.fps_start_time = time.time()
         self.current_fps = 0.0
+        
+        # Threading for video file processing
+        self.processing_thread = None
+        self.stop_processing = False
         
         # Risk scoring parameters (floating-point precision)
         self.risk_weights = {
@@ -58,81 +53,126 @@ class CameraProcessor:
             'location_risk_multiplier': 1.0
         }
         
-        self._initialize_camera()
+        if self.source is not None:
+            # Initialize for video file processing
+            self._initialize_video_file()
+        else:
+            # For live webcam, frames will be provided via process_frame_from_numpy
+            print(f"[INFO] CameraProcessor initialized for live webcam (client-side frames)")
+            self.is_running = True
     
-    def _initialize_camera(self):
-        """Initialize webcam with optimal settings"""
+    def _initialize_video_file(self):
+        """Initialize video file capture for server-side processing"""
         try:
-            print(f"[INFO] Initializing webcam (index {self.source_index})...")
-            self.cap = cv2.VideoCapture(self.source_index)
+            print(f"[INFO] Initializing video file: {self.source}")
+            self.cap = cv2.VideoCapture(self.source)
             
             if not self.cap.isOpened():
-                raise Exception(f"Cannot open webcam with index {self.source_index}")
+                raise Exception(f"Cannot open video file: {self.source}")
             
-            # Optimize camera settings for performance
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-            self.cap.set(cv2.CAP_PROP_FPS, 30)
-            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reduce buffer for lower latency
-            
-            # Verify settings
-            width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            # Get video properties
             fps = self.cap.get(cv2.CAP_PROP_FPS)
+            frame_count = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            duration = frame_count / fps if fps > 0 else 0
             
-            print(f"[INFO] Webcam initialized: {width}x{height} @ {fps} FPS")
-            print(f"CameraProcessor initialized for Webcam {self.source_index} (webcam_{self.source_index})")
-            
+            print(f"[INFO] Video file loaded: {fps:.1f} FPS, {frame_count} frames, {duration:.1f}s duration")
             self.is_running = True
             
         except Exception as e:
-            print(f"[ERROR] Camera initialization failed: {e}")
+            print(f"[ERROR] Video file initialization failed: {e}")
             self.is_running = False
             raise
     
-    def get_frame(self):
+    def process_frame_from_numpy(self, frame_np):
         """
-        Get processed frame with AI analysis and risk scoring
+        Process a single numpy frame (from client-side webcam)
         
+        Args:
+            frame_np: numpy array representing the frame
+            
         Returns:
-            tuple: (frame_bytes, risk_score)
+            tuple: (processed_frame_np, risk_score)
         """
-        if not self.is_running or not self.cap.isOpened():
-            # Return black frame if camera not available
-            black_frame = np.zeros((480, 640, 3), dtype=np.uint8)
-            cv2.putText(black_frame, "Camera Not Available", (200, 240), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-            _, buffer = cv2.imencode('.jpg', black_frame)
-            return buffer.tobytes(), 0.0
+        if not self.is_running or frame_np is None:
+            return frame_np, 0.0
         
         try:
-            ret, frame = self.cap.read()
-            if not ret:
-                print("[WARNING] Failed to read frame from webcam")
-                return self._get_error_frame(), 0.0
-            
             self.frame_count += 1
             
-            # AI Analysis (every frame for real-time detection)
-            detections = self.analyzer.analyze_frame(frame)
+            # AI Analysis
+            detections = self.analyzer.analyze_frame(frame_np)
             self.last_detections = detections
             
             # Calculate comprehensive risk score
             self.current_risk_score = self._calculate_risk_score(detections)
             
             # Draw enhanced overlay
-            annotated_frame = self._draw_enhanced_overlay(frame, detections)
+            processed_frame = self._draw_enhanced_overlay(frame_np.copy(), detections)
             
             # Update FPS counter
             self._update_fps()
             
-            # Encode frame to JPEG
-            _, buffer = cv2.imencode('.jpg', annotated_frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
-            return buffer.tobytes(), self.current_risk_score
+            return processed_frame, self.current_risk_score
             
         except Exception as e:
             print(f"[ERROR] Frame processing failed: {e}")
+            return frame_np, 0.0
+    
+    def get_frame_for_video_file(self):
+        """
+        Get processed frame for video file (server-side processing)
+        
+        Returns:
+            tuple: (frame_bytes, risk_score)
+        """
+        if not self.is_running or not self.cap or not self.cap.isOpened():
             return self._get_error_frame(), 0.0
+        
+        try:
+            ret, frame = self.cap.read()
+            if not ret:
+                # End of video, loop back to beginning
+                self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                ret, frame = self.cap.read()
+                if not ret:
+                    return self._get_error_frame(), 0.0
+            
+            # Process frame
+            processed_frame, risk_score = self.process_frame_from_numpy(frame)
+            
+            # Encode to JPEG bytes
+            _, buffer = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            return buffer.tobytes(), risk_score
+            
+        except Exception as e:
+            print(f"[ERROR] Video file frame processing failed: {e}")
+            return self._get_error_frame(), 0.0
+    
+    def start_video_processing_thread(self):
+        """Start background thread for video file processing"""
+        if self.source is None:
+            print("[WARNING] Cannot start video processing thread for live webcam")
+            return
+        
+        if self.processing_thread and self.processing_thread.is_alive():
+            print("[INFO] Video processing thread already running")
+            return
+        
+        self.stop_processing = False
+        self.processing_thread = threading.Thread(target=self._video_processing_loop)
+        self.processing_thread.daemon = True
+        self.processing_thread.start()
+        print("[INFO] Video processing thread started")
+    
+    def _video_processing_loop(self):
+        """Background loop for video file processing"""
+        while not self.stop_processing and self.is_running:
+            try:
+                frame_bytes, risk_score = self.get_frame_for_video_file()
+                time.sleep(0.033)  # ~30 FPS
+            except Exception as e:
+                print(f"[ERROR] Video processing loop error: {e}")
+                break
     
     def _calculate_risk_score(self, detections):
         """
@@ -296,7 +336,7 @@ class CameraProcessor:
     def _get_error_frame(self):
         """Generate error frame"""
         error_frame = np.zeros((480, 640, 3), dtype=np.uint8)
-        cv2.putText(error_frame, "Camera Error", (250, 240),
+        cv2.putText(error_frame, "Video Processing Error", (200, 240),
                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         _, buffer = cv2.imencode('.jpg', error_frame)
         return buffer.tobytes()
@@ -316,8 +356,14 @@ class CameraProcessor:
     def stop(self):
         """Stop camera processing"""
         self.is_running = False
+        self.stop_processing = True
+        
+        if self.processing_thread and self.processing_thread.is_alive():
+            self.processing_thread.join(timeout=2.0)
+        
         if self.cap:
             self.cap.release()
+        
         print("[INFO] Camera processor stopped")
     
     def __del__(self):
