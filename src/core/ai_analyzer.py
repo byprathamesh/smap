@@ -174,7 +174,7 @@ class AIAnalyzer:
                     bbox_area = (x2 - x1) * (y2 - y1)
                     
                     # KNIFE DETECTION - Ultra-sensitive for user testing
-                    if class_name == 'knife' and confidence > 0.08:
+                    if class_name == 'knife' and confidence > 0.05:  # Even lower threshold
                         # More permissive validation for knives specifically
                         if self._validate_knife_detection(confidence, bbox_area, x1, y1, x2, y2, frame.shape):
                             harmful_objects.append({
@@ -185,6 +185,18 @@ class AIAnalyzer:
                                 'area': bbox_area
                             })
                             print(f"🔪 KNIFE DETECTED: {class_name} (confidence: {confidence:.3f}, area: {int(bbox_area)})")
+                    
+                    # Also detect potential knife-like objects with very low confidence
+                    elif class_name in ['scissors', 'fork', 'spoon', 'banana', 'hot dog', 'remote'] and confidence > 0.03:
+                        # Treat these as potential weapons for ultra-sensitive detection
+                        harmful_objects.append({
+                            'bbox': [x1, y1, x2, y2],
+                            'confidence': confidence,
+                            'class': f'potential_{class_name}',  # Mark as potential weapon
+                            'center': [(x1 + x2) // 2, (y1 + y2) // 2],
+                            'area': bbox_area
+                        })
+                        print(f"⚠️ POTENTIAL WEAPON: {class_name} (confidence: {confidence:.3f})")
                     
                     # Other weapons with standard thresholds
                     elif class_name in self.HARMFUL_OBJECTS and confidence > 0.20:
@@ -501,31 +513,34 @@ class AIAnalyzer:
         return True
     
     def _validate_knife_detection(self, confidence, bbox_area, x1, y1, x2, y2, frame_shape):
-        """Special validation for knife detection - more permissive"""
+        """
+        Ultra-permissive knife detection validation for maximum sensitivity
+        """
         h, w = frame_shape[:2]
         
-        # Very low minimum area for knives (can be small)
-        if bbox_area < 200:  # Much smaller minimum for knives
-            return False
+        # Very permissive size requirements - accept almost any size
+        min_area = 50  # Much smaller minimum
+        max_area = w * h * 0.8  # Allow up to 80% of frame
         
-        # Maximum area filter
-        max_area = w * h * 0.5  # Allow larger detections
-        if bbox_area > max_area:
-            return False
+        # Ultra-low confidence threshold
+        min_confidence = 0.01  # Accept almost anything
         
-        # Very permissive aspect ratio for knives (any shape)
+        # Very permissive aspect ratio - knives can be any shape
         width = x2 - x1
         height = y2 - y1
-        if width <= 0 or height <= 0:
-            return False
+        aspect_ratio = max(width, height) / max(min(width, height), 1)
         
-        aspect_ratio = width / height
+        # Accept almost any detection
+        size_valid = min_area <= bbox_area <= max_area
+        confidence_valid = confidence >= min_confidence
+        position_valid = 0 <= x1 < w and 0 <= y1 < h and 0 < x2 <= w and 0 < y2 <= h
+        aspect_valid = aspect_ratio <= 20  # Very permissive aspect ratio
         
-        # Very wide range for knife shapes (vertical, horizontal, diagonal)
-        if not (0.1 <= aspect_ratio <= 10.0):  # Almost any shape
-            return False
+        # Print debug info for knife detections
+        print(f"🔍 Knife validation: conf={confidence:.3f}, area={int(bbox_area)}, aspect={aspect_ratio:.2f}")
+        print(f"    Size: {size_valid}, Conf: {confidence_valid}, Pos: {position_valid}, Aspect: {aspect_valid}")
         
-        return True
+        return size_valid and confidence_valid and position_valid and aspect_valid
     
     def draw_detections(self, frame, detections, harmful_objects=None):
         """
@@ -607,29 +622,44 @@ class AIAnalyzer:
             if detection.get('keypoints') is not None:
                 self._draw_pose(frame, detection['keypoints'])
         
-        # **Enhanced Weapon Detection Visualization**
-        for obj in harmful_objects:
-            x1, y1, x2, y2 = obj['bbox']
-            class_name = obj['class']
-            confidence = obj['confidence']
-            
-            # Ultra-visible weapon alerts
-            color = (0, 0, 255)  # RED
-            thickness = 5  # Very thick for maximum visibility
-            
-            # Draw weapon bounding box
-            cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
-            
-            # Large weapon label with maximum visibility
-            weapon_label = f"🚨 {class_name.upper()} {confidence:.2f}"
-            
-            # Black background for text
-            label_size = cv2.getTextSize(weapon_label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
-            cv2.rectangle(frame, (x1, y1 - 35), (x1 + label_size[0] + 10, y1), (0, 0, 0), -1)
-            
-            # White text on black background
-            cv2.putText(frame, weapon_label, (x1 + 5, y1 - 10), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        # Draw harmful objects with enhanced visibility
+        if harmful_objects:
+            for obj in harmful_objects:
+                x1, y1, x2, y2 = obj['bbox']
+                confidence = obj['confidence']
+                class_name = obj['class']
+                
+                # Use bright, attention-grabbing colors for weapons
+                if 'knife' in class_name.lower():
+                    color = (0, 0, 255)  # Bright red for knives
+                    thickness = 4
+                elif 'potential' in class_name.lower():
+                    color = (0, 165, 255)  # Orange for potential weapons
+                    thickness = 3
+                else:
+                    color = (0, 255, 255)  # Yellow for other weapons
+                    thickness = 3
+                
+                # Draw thick, visible bounding box
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
+                
+                # Add pulsing effect for knives
+                if 'knife' in class_name.lower():
+                    # Add inner rectangle for pulsing effect
+                    inner_thickness = max(1, thickness - 2)
+                    cv2.rectangle(frame, (x1+2, y1+2), (x2-2, y2-2), (255, 255, 255), inner_thickness)
+                
+                # Enhanced label with background
+                label = f"⚠️ {class_name.upper()} {confidence:.2f}"
+                label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
+                
+                # Background for label
+                cv2.rectangle(frame, (x1, y1-35), (x1 + label_size[0] + 10, y1), color, -1)
+                cv2.rectangle(frame, (x1, y1-35), (x1 + label_size[0] + 10, y1), (255, 255, 255), 2)
+                
+                # Label text
+                cv2.putText(frame, label, (x1 + 5, y1 - 10), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
         
         return frame
     

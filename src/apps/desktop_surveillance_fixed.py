@@ -49,89 +49,128 @@ class DesktopSurveillanceApp:
         print("[INFO] Desktop window created and shown!")
     
     def create_interface(self):
-        """Create the main interface"""
-        # Title
-        title_frame = tk.Frame(self.root, bg='#2c3e50')
-        title_frame.pack(fill='x', padx=10, pady=5)
+        """Create professional UI interface"""
+        # Configure main window
+        self.root.configure(bg='#1a1a1a')
         
-        title_label = tk.Label(title_frame, text="🔍 WatchHer Surveillance System", 
-                              font=('Arial', 20, 'bold'), fg='white', bg='#2c3e50')
-        title_label.pack()
+        # Create header frame
+        header_frame = tk.Frame(self.root, bg='#2d3748', height=70)
+        header_frame.pack(fill='x', padx=0, pady=0)
+        header_frame.pack_propagate(False)
         
-        subtitle_label = tk.Label(title_frame, text="Advanced AI-Powered Security Monitoring", 
-                                 font=('Arial', 12), fg='#bdc3c7', bg='#2c3e50')
-        subtitle_label.pack()
+        # Title with icon
+        title_label = tk.Label(header_frame, text="🛡️ WatchHer Surveillance System", 
+                              font=('Segoe UI', 18, 'bold'), 
+                              fg='#ffffff', bg='#2d3748')
+        title_label.pack(side='left', padx=20, pady=20)
         
-        # Main container
-        main_frame = tk.Frame(self.root, bg='#2c3e50')
-        main_frame.pack(fill='both', expand=True, padx=10, pady=5)
+        # Status indicator
+        self.status_label = tk.Label(header_frame, text="🔴 SYSTEM READY", 
+                                    font=('Segoe UI', 12, 'bold'), 
+                                    fg='#48bb78', bg='#2d3748')
+        self.status_label.pack(side='right', padx=20, pady=20)
         
-        # Left panel - Controls
-        left_frame = tk.Frame(main_frame, bg='#34495e', relief='raised', bd=2)
-        left_frame.pack(side='left', fill='y', padx=(0, 5))
+        # Main content area
+        main_frame = tk.Frame(self.root, bg='#1a1a1a')
+        main_frame.pack(fill='both', expand=True, padx=10, pady=10)
         
-        self.create_control_panel(left_frame)
+        # Left panel for video
+        video_frame = tk.LabelFrame(main_frame, text="📹 Live Video Feed", 
+                                   font=('Segoe UI', 11, 'bold'),
+                                   fg='#ffffff', bg='#2d3748', bd=2)
+        video_frame.pack(side='left', fill='both', expand=True, padx=(0, 5))
         
-        # Right panel - Video
-        right_frame = tk.Frame(main_frame, bg='#2c3e50')
-        right_frame.pack(side='right', fill='both', expand=True)
+        # Video display with better placeholder
+        self.video_label = tk.Label(video_frame, 
+                                   text="🎥 WatchHer AI Surveillance System\n\nAdvanced AI-Powered Security Monitoring\n\nClick 'Start Analysis' to begin monitoring",
+                                   font=('Segoe UI', 14), 
+                                   fg='#a0aec0', bg='#1a1a1a',
+                                   width=80, height=25, justify='center')
+        self.video_label.pack(padx=10, pady=10, fill='both', expand=True)
         
-        self.create_video_panel(right_frame)
+        # Right panel for controls and stats
+        right_panel = tk.Frame(main_frame, bg='#1a1a1a', width=350)
+        right_panel.pack(side='right', fill='y', padx=(5, 0))
+        right_panel.pack_propagate(False)
+        
+        self.create_control_panel(right_panel)
+        self.create_stats_panel(right_panel)
         
     def create_control_panel(self, parent):
-        """Create control panel"""
-        # Title
-        control_title = tk.Label(parent, text="🎛️ Control Panel", 
-                                font=('Arial', 14, 'bold'), fg='white', bg='#34495e')
-        control_title.pack(pady=10)
+        """Create modern control panel"""
+        # Control Panel Frame
+        control_frame = tk.LabelFrame(parent, text="🎮 Control Panel", 
+                                     font=('Segoe UI', 11, 'bold'),
+                                     fg='#ffffff', bg='#2d3748', bd=2)
+        control_frame.pack(fill='x', padx=5, pady=5)
         
         # AI Status
-        self.ai_status_label = tk.Label(parent, text="🤖 AI: Loading...", 
-                                       font=('Arial', 10, 'bold'), fg='#f39c12', bg='#34495e')
-        self.ai_status_label.pack(pady=5)
+        ai_frame = tk.Frame(control_frame, bg='#2d3748')
+        ai_frame.pack(fill='x', padx=10, pady=5)
         
-        # Source selection
-        source_frame = tk.LabelFrame(parent, text="📹 Video Source", 
-                                    font=('Arial', 10, 'bold'), fg='white', bg='#34495e')
-        source_frame.pack(fill='x', padx=10, pady=5)
+        self.ai_status_label = tk.Label(ai_frame, text="🤖 AI: Loading...", 
+                                       font=('Segoe UI', 10, 'bold'), 
+                                       fg='#ffd700', bg='#2d3748')
+        self.ai_status_label.pack(anchor='w')
+        
+        # Video Source Selection
+        source_frame = tk.LabelFrame(control_frame, text="Video Source", 
+                                    font=('Segoe UI', 9, 'bold'),
+                                    fg='#e2e8f0', bg='#4a5568')
+        source_frame.pack(fill='x', padx=10, pady=10)
+        
+        # Webcam option
+        webcam_frame = tk.Frame(source_frame, bg='#4a5568')
+        webcam_frame.pack(fill='x', padx=5, pady=2)
         
         self.source_var = tk.StringVar(value="webcam")
+        webcam_radio = tk.Radiobutton(webcam_frame, text="📷 Live Webcam", 
+                                     variable=self.source_var, value="webcam",
+                                     font=('Segoe UI', 9), fg='#ffffff', bg='#4a5568', 
+                                     selectcolor='#2d3748', activebackground='#4a5568')
+        webcam_radio.pack(anchor='w')
         
-        webcam_radio = tk.Radiobutton(source_frame, text="Webcam", variable=self.source_var, 
-                                     value="webcam", fg='white', bg='#34495e', 
-                                     selectcolor='#3498db', font=('Arial', 9))
-        webcam_radio.pack(anchor='w', padx=5, pady=2)
+        # Video file option
+        file_frame = tk.Frame(source_frame, bg='#4a5568')
+        file_frame.pack(fill='x', padx=5, pady=2)
         
-        video_radio = tk.Radiobutton(source_frame, text="Video File", variable=self.source_var, 
-                                    value="video", fg='white', bg='#34495e', 
-                                    selectcolor='#3498db', font=('Arial', 9))
-        video_radio.pack(anchor='w', padx=5, pady=2)
+        file_radio = tk.Radiobutton(file_frame, text="📁 Video File", 
+                                   variable=self.source_var, value="file",
+                                   font=('Segoe UI', 9), fg='#ffffff', bg='#4a5568',
+                                   selectcolor='#2d3748', activebackground='#4a5568')
+        file_radio.pack(anchor='w')
         
         # File selection
-        file_frame = tk.Frame(source_frame, bg='#34495e')
-        file_frame.pack(fill='x', padx=5, pady=5)
+        file_select_frame = tk.Frame(source_frame, bg='#4a5568')
+        file_select_frame.pack(fill='x', padx=5, pady=5)
         
-        self.file_path = tk.StringVar(value=r"C:\Users\prath\Downloads\delhigully.webm")
-        file_entry = tk.Entry(file_frame, textvariable=self.file_path, font=('Arial', 8))
-        file_entry.pack(side='left', fill='x', expand=True)
+        self.file_path = tk.StringVar()
+        file_entry = tk.Entry(file_select_frame, textvariable=self.file_path, 
+                             font=('Segoe UI', 9), width=25, bg='#1a1a1a', fg='#ffffff')
+        file_entry.pack(side='left', padx=(0, 5))
         
-        browse_btn = tk.Button(file_frame, text="Browse", command=self.browse_file,
-                              bg='#3498db', fg='white', font=('Arial', 8))
-        browse_btn.pack(side='right', padx=(5, 0))
+        browse_btn = tk.Button(file_select_frame, text="Browse", command=self.browse_file,
+                              font=('Segoe UI', 8), bg='#4299e1', fg='#ffffff', 
+                              bd=0, padx=10, relief='flat')
+        browse_btn.pack(side='right')
         
         # Control buttons
-        button_frame = tk.Frame(parent, bg='#34495e')
-        button_frame.pack(fill='x', padx=10, pady=10)
+        button_frame = tk.Frame(control_frame, bg='#2d3748')
+        button_frame.pack(fill='x', padx=10, pady=15)
         
+        # Start button
         self.start_btn = tk.Button(button_frame, text="▶️ Start Analysis", 
-                                  command=self.start_analysis, bg='#27ae60', fg='white',
-                                  font=('Arial', 10, 'bold'), height=2, state='disabled')
-        self.start_btn.pack(fill='x', pady=2)
+                                  command=self.start_monitoring,
+                                  font=('Segoe UI', 11, 'bold'), bg='#48bb78', fg='#ffffff',
+                                  bd=0, padx=20, pady=8, relief='flat')
+        self.start_btn.pack(fill='x', pady=(0, 5))
         
+        # Stop button
         self.stop_btn = tk.Button(button_frame, text="⏹️ Stop Analysis", 
-                                 command=self.stop_analysis, bg='#e74c3c', fg='white',
-                                 font=('Arial', 10, 'bold'), height=2, state='disabled')
-        self.stop_btn.pack(fill='x', pady=2)
+                                 command=self.stop_monitoring,
+                                 font=('Segoe UI', 11, 'bold'), bg='#f56565', fg='#ffffff',
+                                 bd=0, padx=20, pady=8, relief='flat', state='disabled')
+        self.stop_btn.pack(fill='x')
         
         # Statistics
         stats_frame = tk.LabelFrame(parent, text="📊 Live Statistics", 
@@ -468,6 +507,93 @@ class DesktopSurveillanceApp:
             self.log_text.see(tk.END)
         
         self.root.after(0, update_log)
+
+    def create_stats_panel(self, parent):
+        """Create modern statistics panel"""
+        # Statistics Panel
+        stats_frame = tk.LabelFrame(parent, text="📊 Live Statistics", 
+                                   font=('Segoe UI', 11, 'bold'),
+                                   fg='#ffffff', bg='#2d3748', bd=2)
+        stats_frame.pack(fill='both', expand=True, padx=5, pady=5)
+        
+        # Risk Level Display
+        risk_frame = tk.Frame(stats_frame, bg='#2d3748')
+        risk_frame.pack(fill='x', padx=10, pady=5)
+        
+        tk.Label(risk_frame, text="🚨 Risk Score:", 
+                font=('Segoe UI', 10, 'bold'), fg='#ffffff', bg='#2d3748').pack(anchor='w')
+        self.risk_label = tk.Label(risk_frame, text="0.0%", 
+                                  font=('Segoe UI', 14, 'bold'), fg='#48bb78', bg='#2d3748')
+        self.risk_label.pack(anchor='w')
+        
+        # Performance Stats
+        perf_frame = tk.Frame(stats_frame, bg='#2d3748')
+        perf_frame.pack(fill='x', padx=10, pady=5)
+        
+        tk.Label(perf_frame, text="⚡ FPS:", 
+                font=('Segoe UI', 10), fg='#e2e8f0', bg='#2d3748').pack(anchor='w')
+        self.fps_label = tk.Label(perf_frame, text="0.0", 
+                                 font=('Segoe UI', 11, 'bold'), fg='#4299e1', bg='#2d3748')
+        self.fps_label.pack(anchor='w')
+        
+        # Detection Stats
+        detection_frame = tk.Frame(stats_frame, bg='#2d3748')
+        detection_frame.pack(fill='x', padx=10, pady=5)
+        
+        tk.Label(detection_frame, text="👥 People:", 
+                font=('Segoe UI', 10), fg='#e2e8f0', bg='#2d3748').pack(anchor='w')
+        self.people_label = tk.Label(detection_frame, text="0", 
+                                    font=('Segoe UI', 11, 'bold'), fg='#ed8936', bg='#2d3748')
+        self.people_label.pack(anchor='w')
+        
+        # Gender breakdown
+        gender_frame = tk.Frame(stats_frame, bg='#2d3748')
+        gender_frame.pack(fill='x', padx=10, pady=5)
+        
+        tk.Label(gender_frame, text="🚺 Gender:", 
+                font=('Segoe UI', 10), fg='#e2e8f0', bg='#2d3748').pack(anchor='w')
+        self.gender_label = tk.Label(gender_frame, text="0M|0F", 
+                                    font=('Segoe UI', 11, 'bold'), fg='#9f7aea', bg='#2d3748')
+        self.gender_label.pack(anchor='w')
+        
+        # Threat level
+        threat_frame = tk.Frame(stats_frame, bg='#2d3748')
+        threat_frame.pack(fill='x', padx=10, pady=5)
+        
+        tk.Label(threat_frame, text="⚠️ Poses:", 
+                font=('Segoe UI', 10), fg='#e2e8f0', bg='#2d3748').pack(anchor='w')
+        self.poses_label = tk.Label(threat_frame, text="0", 
+                                   font=('Segoe UI', 11, 'bold'), fg='#38b2ac', bg='#2d3748')
+        self.poses_label.pack(anchor='w')
+        
+        # Frame count
+        frame_frame = tk.Frame(stats_frame, bg='#2d3748')
+        frame_frame.pack(fill='x', padx=10, pady=5)
+        
+        tk.Label(frame_frame, text="🎬 Frames:", 
+                font=('Segoe UI', 10), fg='#e2e8f0', bg='#2d3748').pack(anchor='w')
+        self.frames_label = tk.Label(frame_frame, text="0", 
+                                    font=('Segoe UI', 11, 'bold'), fg='#68d391', bg='#2d3748')
+        self.frames_label.pack(anchor='w')
+        
+        # Activity Log
+        log_frame = tk.LabelFrame(stats_frame, text="📝 Activity Log", 
+                                 font=('Segoe UI', 9, 'bold'),
+                                 fg='#e2e8f0', bg='#4a5568')
+        log_frame.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        # Create scrollable text widget
+        log_scroll_frame = tk.Frame(log_frame, bg='#4a5568')
+        log_scroll_frame.pack(fill='both', expand=True, padx=5, pady=5)
+        
+        scrollbar = tk.Scrollbar(log_scroll_frame)
+        scrollbar.pack(side='right', fill='y')
+        
+        self.log_text = tk.Text(log_scroll_frame, height=8, width=25,
+                               font=('Consolas', 8), bg='#1a1a1a', fg='#e2e8f0',
+                               yscrollcommand=scrollbar.set, wrap='word')
+        self.log_text.pack(side='left', fill='both', expand=True)
+        scrollbar.config(command=self.log_text.yview)
 
 def main():
     """Main function"""
