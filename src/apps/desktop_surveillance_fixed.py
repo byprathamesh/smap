@@ -280,7 +280,8 @@ class DesktopSurveillanceApp:
                     continue
                 
                 # Process frame with AI
-                analyzed_frame, detections, risk_score = processor.process_frame(frame)
+                analyzed_frame, risk_score = processor.process_frame_from_numpy(frame)
+                detections = processor.last_detections if hasattr(processor, 'last_detections') else []
                 
                 # Update display and stats
                 self.display_frame(analyzed_frame)
@@ -322,7 +323,8 @@ class DesktopSurveillanceApp:
                     continue
                 
                 # Process frame with AI
-                analyzed_frame, detections, risk_score = processor.process_frame(frame)
+                analyzed_frame, risk_score = processor.process_frame_from_numpy(frame)
+                detections = processor.last_detections if hasattr(processor, 'last_detections') else []
                 
                 # Update display and stats
                 self.display_frame(analyzed_frame)
