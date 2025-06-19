@@ -9,7 +9,6 @@
 [![Python](https://img.shields.io/badge/Python-3.8+-blue?style=flat-square&logo=python)](https://python.org)
 [![OpenCV](https://img.shields.io/badge/OpenCV-4.8+-green?style=flat-square&logo=opencv)](https://opencv.org)
 [![YOLO](https://img.shields.io/badge/YOLO-v11-orange?style=flat-square)](https://ultralytics.com)
-[![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
 </div>
 
@@ -37,7 +36,6 @@
 - [Usage](#usage)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
-- [License](#license)
 
 ## 🛠️ **Installation**
 
@@ -123,7 +121,6 @@ print(f"Current threat level: {threat_level}")
 watchher-ai-surveillance/
 ├── README.md                          # Project overview and setup
 ├── requirements.txt                   # Python dependencies
-├── LICENSE                           # Project license
 ├── .gitignore                        # Git ignore rules
 │
 ├── src/                              # Source code
@@ -225,22 +222,11 @@ python src/apps/watchher_desktop.py
 - **🏙️ Urban Planning**: City-wide safety analysis
 - **🎉 Event Security**: Large gathering monitoring
 
-## 📄 **License**
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
 ## 🙏 **Acknowledgments**
 
 - **Ultralytics** for YOLO models
 - **OpenCV** community for computer vision tools
 - **Women's safety advocates** for inspiration and requirements
-
-## 📞 **Support**
-
-- 📧 Email: support@watchher-ai.com
-- 💬 Discord: [WatchHer Community](https://discord.gg/watchher)
-- 📖 Wiki: [Project Wiki](https://github.com/yourusername/watchher-ai-surveillance/wiki)
-- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/watchher-ai-surveillance/issues)
 
 ---
 
@@ -248,6 +234,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Built with ❤️ for women's safety and public protection**
 
-[Website](https://watchher-ai.com) • [Documentation](docs/) • [Community](https://discord.gg/watchher) • [Support](mailto:support@watchher-ai.com)
+[Website](https://watchher-ai.com) • [Documentation](docs/) • [Community](https://discord.gg/watchher)
 
 </div> 
