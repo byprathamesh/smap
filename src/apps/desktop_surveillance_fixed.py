@@ -31,10 +31,13 @@ class DesktopSurveillanceApp:
         self.video_thread = None
         self.ai_ready = False
         
-        # Stats
+        # Initialize statistics variables
         self.frame_count = 0
         self.risk_score = 0.0
         self.detection_count = 0
+        self.men_count = 0
+        self.women_count = 0
+        self.pose_count = 0
         self.fps = 0.0
         
         # Create UI FIRST
@@ -171,48 +174,6 @@ class DesktopSurveillanceApp:
                                  font=('Segoe UI', 11, 'bold'), bg='#f56565', fg='#ffffff',
                                  bd=0, padx=20, pady=8, relief='flat', state='disabled')
         self.stop_btn.pack(fill='x')
-        
-        # Statistics
-        stats_frame = tk.LabelFrame(parent, text="📊 Live Statistics", 
-                                   font=('Arial', 10, 'bold'), fg='white', bg='#34495e')
-        stats_frame.pack(fill='x', padx=10, pady=10)
-        
-        self.risk_label = tk.Label(stats_frame, text="🎯 Risk Score: 0.0%", 
-                                  font=('Arial', 9, 'bold'), fg='#e74c3c', bg='#34495e')
-        self.risk_label.pack(anchor='w', padx=5, pady=2)
-        
-        self.fps_label = tk.Label(stats_frame, text="⚡ FPS: 0.0", 
-                                 font=('Arial', 9), fg='white', bg='#34495e')
-        self.fps_label.pack(anchor='w', padx=5, pady=2)
-        
-        self.detection_label = tk.Label(stats_frame, text="👥 People: 0", 
-                                       font=('Arial', 9), fg='white', bg='#34495e')
-        self.detection_label.pack(anchor='w', padx=5, pady=2)
-        
-        self.gender_label = tk.Label(stats_frame, text="👨👩 Gender: 0M/0F", 
-                                    font=('Arial', 9), fg='white', bg='#34495e')
-        self.gender_label.pack(anchor='w', padx=5, pady=2)
-        
-        self.pose_label = tk.Label(stats_frame, text="🤸 Poses: 0", 
-                                  font=('Arial', 9), fg='white', bg='#34495e')
-        self.pose_label.pack(anchor='w', padx=5, pady=2)
-        
-        self.frame_label = tk.Label(stats_frame, text="📸 Frames: 0", 
-                                   font=('Arial', 9), fg='white', bg='#34495e')
-        self.frame_label.pack(anchor='w', padx=5, pady=2)
-        
-        # Activity log
-        log_frame = tk.LabelFrame(parent, text="📋 Activity Log", 
-                                 font=('Arial', 10, 'bold'), fg='white', bg='#34495e')
-        log_frame.pack(fill='both', expand=True, padx=10, pady=10)
-        
-        self.log_text = tk.Text(log_frame, height=8, bg='#2c3e50', fg='#ecf0f1', 
-                               font=('Consolas', 8), wrap='word')
-        self.log_text.pack(fill='both', expand=True, padx=5, pady=5)
-        
-        # Add initial log
-        self.add_log("✅ Desktop surveillance app started")
-        self.add_log("🔄 Initializing AI components...")
         
     def create_video_panel(self, parent):
         """Create video display panel"""
@@ -594,6 +555,10 @@ class DesktopSurveillanceApp:
                                yscrollcommand=scrollbar.set, wrap='word')
         self.log_text.pack(side='left', fill='both', expand=True)
         scrollbar.config(command=self.log_text.yview)
+        
+        # Add initial log entries
+        self.add_log("✅ WatchHer System Initialized")
+        self.add_log("🔄 Loading AI components...")
 
 def main():
     """Main function"""

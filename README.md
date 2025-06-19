@@ -1,4 +1,4 @@
-# WatchHer — Intelligent Public Safety Monitoring System
+# WatchHer Intelligent Public Safety Monitoring System
 
 <div align="center">
 
